@@ -37,9 +37,12 @@ export function AdminPage() {
   const handleLogin = async () => {
     setAuthLoading(true); setAuthError(null);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { setAuthError(error.message); setAuthLoading(false); return; }
+    if (error) { setAuthError(typeof error.message === 'string' ? error.message : 'Login failed. Check your credentials.'); setAuthLoading(false); return; }
     if (data.user) {
-      const { data: adminData } = await supabase.from('admin_users').select('id, role').eq('user_id', data.user.id).maybeSingle();
+      // Small delay to ensure session is propagated
+      await new Promise(r => setTimeout(r, 200));
+      const { data: adminData, error: adminErr } = await supabase.from('admin_users').select('id, role').eq('user_id', data.user.id).maybeSingle();
+      if (adminErr) { setAuthError('Unable to verify admin status. Please try again.'); setAuthLoading(false); return; }
       if (adminData && adminData.role === 'admin') { setIsAdmin(true); setAdminEmail(data.user.email || 'Admin'); setShow403(false); }
       else { setAuthError('Access denied. This account does not have admin privileges.'); await supabase.auth.signOut(); }
     }
