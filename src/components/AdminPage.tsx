@@ -13,7 +13,7 @@ export function AdminPage() {
   const { navigate } = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState('shivanshpathak71@gmail.com');
   const [password, setPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -86,20 +86,20 @@ export function AdminPage() {
               <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Email</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input type="email" className="input-field pl-10" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@achieveros.com" onKeyDown={(e) => e.key === 'Enter' && handleLogin()} />
+                <input type="email" className="input-field pl-10 bg-gray-50 text-gray-500" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@achieveros.com" onKeyDown={(e) => e.key === 'Enter' && handleLogin()} readOnly />
               </div>
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input type="password" className="input-field pl-10" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" onKeyDown={(e) => e.key === 'Enter' && handleLogin()} />
+                <input type="password" className="input-field pl-10" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" onKeyDown={(e) => e.key === 'Enter' && handleLogin()} autoFocus />
               </div>
             </div>
             {authError && <div className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{authError}</div>}
-            <button onClick={handleLogin} disabled={authLoading || !email || !password} className="btn-primary w-full py-3">
+            <button onClick={handleLogin} disabled={authLoading || !password} className="btn-primary w-full py-3">
               {authLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-              {authLoading ? 'Signing in…' : 'Sign In'}
+              {authLoading ? 'Signing in…' : 'Sign In to Admin'}
             </button>
           </div>
           <p className="text-center text-xs text-gray-400 mt-4">Authorized personnel only. All actions are logged.</p>
