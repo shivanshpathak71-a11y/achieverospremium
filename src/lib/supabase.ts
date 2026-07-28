@@ -87,6 +87,24 @@ export interface PdfNameEntry {
   url: string;
 }
 
+export interface CourseNote {
+  id: string;
+  subject_id: string;
+  source_id: string | null;
+  title: string;
+  description: string | null;
+  pdf_url: string;
+  teacher_name: string | null;
+  category_name: string | null;
+  section_name: string | null;
+  topic_name: string | null;
+  is_free: boolean;
+  sort_order: number;
+  source_created_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Lecture {
   id: string;
   chapter_id: string;

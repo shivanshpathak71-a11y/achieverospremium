@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, type Subject, type Chapter, type Lecture } from './supabase';
+import { supabase, type Subject, type Chapter, type Lecture, type CourseNote } from './supabase';
 
 export function useSubjects() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -132,4 +132,17 @@ export function useAdminStatus() {
     });
   }, []);
   return { isAdmin, checking, checkAdmin };
+}
+
+export function useCourseNotes(subjectId: string | undefined) {
+  const [notes, setNotes] = useState<CourseNote[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!subjectId) { setLoading(false); return; }
+    supabase.from('course_notes').select('*').eq('subject_id', subjectId).order('sort_order').then(({ data, error }) => {
+      if (!error && data) setNotes(data as CourseNote[]);
+      setLoading(false);
+    });
+  }, [subjectId]);
+  return { notes, loading };
 }

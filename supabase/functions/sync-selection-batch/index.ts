@@ -11,6 +11,7 @@ const SOURCE_BATCH_ID = "6a462e62b927c1a84a8b7879";
 const SOURCE_API_BASE = "https://backend.multistreaming.site/api/courses";
 const SOURCE_COURSE_API = `${SOURCE_API_BASE}/${SOURCE_BATCH_ID}`;
 const SOURCE_CLASSES_API = `${SOURCE_API_BASE}/${SOURCE_BATCH_ID}/classes?populate=full`;
+const SOURCE_PDFS_API = `${SOURCE_API_BASE}/${SOURCE_BATCH_ID}/pdfs`;
 
 function slugify(text: string): string {
   return text
@@ -305,6 +306,48 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // ─── Sync course-level PDFs/notes ───
+    let syncedPdfs = 0;
+    try {
+      const pdfRes = await fetch(SOURCE_PDFS_API, {
+        headers: { "User-Agent": "ShivanshSync/1.0" },
+      });
+      if (pdfRes.ok) {
+        const pdfData = await pdfRes.json();
+        const pdfs = pdfData?.data?.pdfs || [];
+        for (let i = 0; i < pdfs.length; i++) {
+          const p = pdfs[i];
+          const pdfUrl = p.uploadPdf || null;
+          if (!pdfUrl) continue;
+          const noteData = {
+            subject_id: subjectId,
+            source_id: p.id || null,
+            title: p.title || `Note ${i + 1}`,
+            description: p.description || null,
+            pdf_url: pdfUrl,
+            teacher_name: p.teacherName || null,
+            category_name: p.category?.categoryName || null,
+            section_name: p.section?.sectionName || null,
+            topic_name: p.topic?.topicName || null,
+            is_free: p.isFree || false,
+            sort_order: p.priority || i,
+            source_created_at: p.createdAt || null,
+            updated_at: new Date().toISOString(),
+          };
+          const { error: noteErr } = await supabase
+            .from("course_notes")
+            .upsert(noteData, { onConflict: "source_id" });
+          if (noteErr) {
+            console.warn(`Course note upsert warning: ${noteErr.message}`);
+          } else {
+            syncedPdfs++;
+          }
+        }
+      }
+    } catch (pdfSyncErr) {
+      console.warn(`PDF sync error: ${pdfSyncErr.message}`);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -313,6 +356,7 @@ Deno.serve(async (req: Request) => {
         totalClasses,
         newClasses,
         updatedClasses,
+        syncedPdfs,
         syncedAt: new Date().toISOString(),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },

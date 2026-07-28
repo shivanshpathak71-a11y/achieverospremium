@@ -5,10 +5,10 @@ import {
   CheckCircle, Calendar, Radio, Clock3, BadgeIndianRupee, Users,
   ShieldCheck, ChevronDown, Award, Youtube, Sparkles, Layers,
   GraduationCap, ArrowRight, Star, TrendingUp, Eye, Gift, Zap,
-  Video, Info
+  Video, Info, Download, StickyNote, CalendarClock
 } from 'lucide-react';
 import { useRouter } from '../lib/router';
-import { useSubjects, useSubject, useChaptersBySubjectSlug, useLectures, useAllLectures, useAllChapters, formatDuration } from '../lib/hooks';
+import { useSubjects, useSubject, useChaptersBySubjectSlug, useLectures, useAllLectures, useAllChapters, useCourseNotes, formatDuration } from '../lib/hooks';
 import { getProgress, getCourseProgress, getAllProgress } from '../lib/storage';
 import * as LucideIcons from 'lucide-react';
 
@@ -175,6 +175,8 @@ export function CourseDetailPage({ slug }: { slug: string }) {
   const { subject, loading: subLoading } = useSubject(slug);
   const { chapters, loading: chLoading } = useChaptersBySubjectSlug(slug);
   const { lectures } = useAllLectures();
+  const { notes, loading: notesLoading } = useCourseNotes(subject?.id);
+  const [activeMainTab, setActiveMainTab] = useState<'videos' | 'notes' | 'live'>('videos');
   const [activeDetailTab, setActiveDetailTab] = useState<'timetable' | 'faculty' | 'faqs' | 'highlights'>('timetable');
 
   if (subLoading || chLoading) return (
@@ -333,7 +335,90 @@ export function CourseDetailPage({ slug }: { slug: string }) {
         </motion.div>
       )}
 
-      {/* ═══ TWO-COLUMN LAYOUT ═══ */}
+      {/* ─── Upcoming Classes ─── */}
+      {(() => {
+        const now = new Date();
+        const upcoming = subjectLectures
+          .filter((l) => l.start_date && new Date(l.start_date) > now)
+          .sort((a, b) => new Date(a.start_date!).getTime() - new Date(b.start_date!).getTime())
+          .slice(0, 6);
+        const liveNow = subjectLectures.filter((l) => l.is_live);
+        if (upcoming.length === 0 && liveNow.length === 0) return null;
+        return (
+          <motion.div className="mb-6"
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25, duration: 0.35 }}>
+            <div className="flex items-center justify-between mb-4">
+              <SectionHeading icon={CalendarClock} title="Upcoming & Live Classes" accent="rose" />
+              {upcoming.length > 0 && <span className="text-xs text-gray-400 font-medium">{upcoming.length} upcoming</span>}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {liveNow.map((l) => {
+                const ch = chapters.find((c) => c.id === l.chapter_id);
+                return (
+                  <button key={l.id} onClick={() => navigate({ name: 'lecture', subjectSlug: subject.slug, chapterSlug: ch?.slug || '', lectureId: l.id })}
+                    className="group bg-white border border-rose-200 rounded-2xl p-4 text-left hover:shadow-premium transition-all duration-300 relative overflow-hidden">
+                    <div className="absolute top-3 right-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                      <Radio className="w-2.5 h-2.5 fill-white" /> LIVE
+                    </div>
+                    <div className="w-9 h-9 rounded-xl bg-rose-50 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                      <Radio className="w-4 h-4 text-rose-500" />
+                    </div>
+                    <p className="font-bold text-sm text-gray-900 line-clamp-2 pr-12">{l.title}</p>
+                    {l.teacher_name && <p className="text-xs text-gray-400 mt-1">{l.teacher_name}</p>}
+                    {ch && <p className="text-[10px] text-primary-500 font-medium mt-1">{ch.title}</p>}
+                  </button>
+                );
+              })}
+              {upcoming.map((l) => {
+                const ch = chapters.find((c) => c.id === l.chapter_id);
+                const startDate = new Date(l.start_date!);
+                const dateStr = startDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                const timeStr = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                return (
+                  <button key={l.id} onClick={() => navigate({ name: 'lecture', subjectSlug: subject.slug, chapterSlug: ch?.slug || '', lectureId: l.id })}
+                    className="group bg-white border border-gray-200 rounded-2xl p-4 text-left hover:shadow-premium hover:border-primary-200 transition-all duration-300">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-9 h-9 rounded-xl bg-primary-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <CalendarClock className="w-4 h-4 text-primary-500" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">{dateStr}</p>
+                        <p className="text-xs font-bold text-primary-600">{timeStr}</p>
+                      </div>
+                    </div>
+                    <p className="font-bold text-sm text-gray-900 line-clamp-2">{l.title}</p>
+                    {l.teacher_name && <p className="text-xs text-gray-400 mt-1">{l.teacher_name}</p>}
+                    {ch && <p className="text-[10px] text-primary-500 font-medium mt-1">{ch.title}</p>}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        );
+      })()}
+
+      {/* ═══ MAIN TAB BAR ═══ */}
+      <div className="flex gap-2 mb-6 bg-white border border-gray-200 rounded-2xl p-1.5">
+        {[
+          { id: 'videos' as const, label: 'Videos', icon: Video },
+          { id: 'notes' as const, label: 'Notes', icon: StickyNote },
+          { id: 'live' as const, label: 'Live & Timetable', icon: CalendarClock },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button key={tab.id} onClick={() => setActiveMainTab(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeMainTab === tab.id ? 'bg-primary-600 text-white shadow-soft' : 'text-gray-500 hover:bg-gray-50'}`}>
+              <Icon className="w-4 h-4" /> {tab.label}
+              {tab.id === 'notes' && notes.length > 0 && (
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${activeMainTab === tab.id ? 'bg-white/20 text-white' : 'bg-primary-50 text-primary-600'}`}>{notes.length}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ═══ VIDEOS TAB (two-column layout) ═══ */}
+      {activeMainTab === 'videos' && (
       <div className="flex flex-col lg:flex-row gap-6">
         {/* ─── LEFT: Chapters & Lectures ─── */}
         <div className="flex-1 min-w-0 order-1">
@@ -565,6 +650,156 @@ export function CourseDetailPage({ slug }: { slug: string }) {
           </div>
         </div>
       </div>
+      )}
+
+      {/* ═══ NOTES TAB ═══ */}
+      {activeMainTab === 'notes' && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+          <SectionHeading icon={StickyNote} title="Course Notes & PDFs" accent="primary" />
+          {notesLoading ? (
+            <div className="space-y-3">{[1, 2].map((i) => <div key={i} className="h-16 skeleton rounded-2xl" />)}</div>
+          ) : notes.length > 0 ? (
+            <div className="space-y-3">
+              {notes.map((note, idx) => (
+                <motion.div key={note.id}
+                  className="flex items-center gap-4 p-5 bg-gradient-to-r from-primary-50/40 to-white rounded-2xl border border-primary-100 hover:border-primary-200 hover:shadow-soft transition-all duration-300 group"
+                  initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.05, duration: 0.25 }}>
+                  <div className="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                    <FileText className="w-5 h-5 text-primary-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-gray-900 truncate">{note.title}</p>
+                    {note.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{note.description}</p>}
+                    <div className="flex items-center gap-2 mt-1.5 text-[10px] text-gray-400">
+                      {note.category_name && <span className="px-1.5 py-0.5 rounded bg-gray-100 font-medium">{note.category_name}</span>}
+                      {note.section_name && <span className="px-1.5 py-0.5 rounded bg-primary-50 text-primary-600 font-medium">{note.section_name}</span>}
+                      {note.is_free && <span className="px-1.5 py-0.5 rounded bg-success-50 text-success-600 font-bold">FREE</span>}
+                    </div>
+                  </div>
+                  <button onClick={() => window.open(note.pdf_url, '_blank')} className="btn-primary text-xs py-2 px-3.5">View</button>
+                  <a href={note.pdf_url} download target="_blank" rel="noreferrer" className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center hover:bg-gray-100 transition-colors">
+                    <Download className="w-4 h-4 text-gray-500" />
+                  </a>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-3xl p-12 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
+                <StickyNote className="w-8 h-8 text-gray-300" />
+              </div>
+              <p className="text-sm text-gray-400">No course notes available yet.</p>
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {/* ═══ LIVE & TIMETABLE TAB ═══ */}
+      {activeMainTab === 'live' && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+          {/* Live Now */}
+          {(() => {
+            const liveNow = subjectLectures.filter((l) => l.is_live);
+            if (liveNow.length === 0) return null;
+            return (
+              <div>
+                <SectionHeading icon={Radio} title="Live Now" accent="rose" />
+                <div className="space-y-3">
+                  {liveNow.map((l) => {
+                    const ch = chapters.find((c) => c.id === l.chapter_id);
+                    return (
+                      <button key={l.id} onClick={() => navigate({ name: 'lecture', subjectSlug: subject.slug, chapterSlug: ch?.slug || '', lectureId: l.id })}
+                        className="group w-full flex items-center gap-4 p-4 bg-white border border-rose-200 rounded-2xl text-left hover:shadow-premium transition-all duration-300">
+                        <div className="w-11 h-11 rounded-xl bg-rose-50 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                          <Radio className="w-5 h-5 text-rose-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm text-gray-900">{l.title}</p>
+                          {l.teacher_name && <p className="text-xs text-gray-400 mt-0.5">{l.teacher_name}</p>}
+                        </div>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                          <Radio className="w-2.5 h-2.5 fill-white" /> LIVE NOW
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Upcoming Classes */}
+          {(() => {
+            const now = new Date();
+            const upcoming = subjectLectures
+              .filter((l) => l.start_date && new Date(l.start_date) > now && !l.is_live)
+              .sort((a, b) => new Date(a.start_date!).getTime() - new Date(b.start_date!).getTime());
+            if (upcoming.length === 0) return null;
+            return (
+              <div>
+                <SectionHeading icon={CalendarClock} title="Upcoming Classes" accent="primary" />
+                <div className="space-y-3">
+                  {upcoming.map((l) => {
+                    const ch = chapters.find((c) => c.id === l.chapter_id);
+                    const startDate = new Date(l.start_date!);
+                    const dateStr = startDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                    const timeStr = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                    return (
+                      <button key={l.id} onClick={() => navigate({ name: 'lecture', subjectSlug: subject.slug, chapterSlug: ch?.slug || '', lectureId: l.id })}
+                        className="group w-full flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-2xl text-left hover:shadow-premium hover:border-primary-200 transition-all duration-300">
+                        <div className="w-11 h-11 rounded-xl bg-primary-50 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                          <CalendarClock className="w-5 h-5 text-primary-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm text-gray-900">{l.title}</p>
+                          <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                            <span className="font-medium text-primary-600">{dateStr} · {timeStr}</span>
+                            {l.teacher_name && <span>· {l.teacher_name}</span>}
+                            {ch && <span>· {ch.title}</span>}
+                          </div>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-primary-500 group-hover:translate-x-1 transition-all" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Timetable */}
+          {hasTimetable && (
+            <div>
+              <SectionHeading icon={Calendar} title="Weekly Timetable" accent="blue" />
+              <div className="bg-white border border-gray-200 rounded-3xl p-5 space-y-2.5">
+                {subject.time_table!.map((entry, i) => (
+                  <div key={i}
+                    className="flex items-center gap-3 p-3 rounded-2xl bg-gradient-to-r from-gray-50 to-white border border-gray-100 hover:border-primary-200 transition-all group">
+                    <div className="w-9 h-9 rounded-xl bg-primary-50 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                      <GraduationCap className="w-4 h-4 text-primary-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm text-gray-900">{entry.topic}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{entry.time}</p>
+                    </div>
+                    <div className="w-2 h-2 rounded-full bg-primary-400 group-hover:scale-150 transition-transform" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* No content fallback */}
+          {!hasTimetable && subjectLectures.filter((l) => l.is_live).length === 0 && subjectLectures.filter((l) => l.start_date && new Date(l.start_date) > new Date()).length === 0 && (
+            <div className="bg-white border border-gray-200 rounded-3xl p-12 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
+                <CalendarClock className="w-8 h-8 text-gray-300" />
+              </div>
+              <p className="text-sm text-gray-400">No live or upcoming classes scheduled right now.</p>
+            </div>
+          )}
+        </motion.div>
+      )}
     </div>
   );
 }
