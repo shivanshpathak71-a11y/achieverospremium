@@ -58,6 +58,10 @@ export interface Subject {
   intro_video_id: string | null;
   main_category: string | null;
   source_batch_id: string | null;
+  short_description: string | null;
+  is_free: boolean;
+  is_recorded: boolean;
+  demo_video_url: string | null;
 }
 
 export interface Chapter {
@@ -107,5 +111,11 @@ export interface Lecture {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  unique_view_count: number;
+  is_free: boolean;
+  is_blinking: boolean;
+  start_date: string | null;
+  end_date: string | null;
+  section_name: string | null;
   chapter?: Chapter;
 }

@@ -58,6 +58,7 @@ Deno.serve(async (req: Request) => {
     const courseEnrichment = {
       title: course.title,
       description: course.description?.join(" ") || null,
+      short_description: course.short_description || (course.shortDescriptions && course.shortDescriptions[0]) || null,
       banner_url: course.banner || null,
       banner_square_url: course.bannerSquare || null,
       validity: course.validity || null,
@@ -72,6 +73,8 @@ Deno.serve(async (req: Request) => {
       course_highlights: course.courseHighlights || null,
       intro_video_id: course.introVideoId || null,
       main_category: course.mainCategory?.mainCategoryName || null,
+      is_free: course.isFree || false,
+      is_recorded: course.isRecorded || false,
       updated_at: new Date().toISOString(),
     };
 
@@ -241,6 +244,12 @@ Deno.serve(async (req: Request) => {
           source_video_urls: allVideoUrls.length > 0 ? allVideoUrls : null,
           source_class_id: cls.classId,
           is_live: cls.isLive || false,
+          is_free: cls.isFree || false,
+          is_blinking: cls.isBlinking || false,
+          unique_view_count: cls.uniqueViewCount || 0,
+          start_date: cls.startDate || null,
+          end_date: cls.endDate || null,
+          section_name: cls.section?.sectionName || null,
           duration_seconds: Math.round(cls.duration || 0),
           teacher_name: cls.teacherName || null,
           sort_order: cIdx,
