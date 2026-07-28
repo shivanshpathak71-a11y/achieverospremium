@@ -4,7 +4,7 @@ import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize,
   Settings, Check, ChevronLeft, SkipForward, SkipBack,
   Monitor, PictureInPicture, Camera, Lock, Unlock,
-  Repeat, Gauge, Radio,
+  Repeat, Gauge, Radio, AlertCircle, RefreshCw,
 } from 'lucide-react';
 import Hls from 'hls.js';
 import type { Lecture } from '../lib/supabase';
@@ -44,7 +44,9 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
   const [abRepeat, setAbRepeat] = useState<{ a: number | null; b: number | null }>({ a: null, b: null });
   const [showAbHint, setShowAbHint] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const stallTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const [autoNext, setAutoNext] = useState(true);
+  const [stalled, setStalled] = useState(false);
   const [resumeChecked, setResumeChecked] = useState(false);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const lastTapRef = useRef<{ time: number; side: 'left' | 'right' } | null>(null);
@@ -68,17 +70,40 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
           enableWorker: true,
           lowLatencyMode: false,
           liveDurationInfinity: false,
-          manifestLoadingTimeOut: 15000,
-          manifestLoadingMaxRetry: 4,
-          levelLoadingTimeOut: 10000,
-          fragLoadingTimeOut: 20000,
-          fragLoadingMaxRetry: 6,
-          fragLoadingRetryDelay: 500,
+          // Buffer tuning — keep more ahead to absorb proxy latency
+          maxBufferLength: 30,
+          maxMaxBufferLength: 90,
+          backBufferLength: 30,
+          // Start on a mid-range level instead of highest to avoid early stalls
+          startLevel: -1,
+          startFragPrefetch: true,
+          testBandwidth: true,
+          // Aggressive retry — proxy can hiccup
+          manifestLoadingTimeOut: 20000,
+          manifestLoadingMaxRetry: 5,
+          levelLoadingTimeOut: 15000,
+          levelLoadingMaxRetry: 6,
+          fragLoadingTimeOut: 30000,
+          fragLoadingMaxRetry: 10,
+          fragLoadingRetryDelay: 400,
+          fragLoadingMaxRetryTimeout: 64000,
+          // Nudge through stalls instead of freezing
+          nudgeMaxRetry: 10,
+          nudgeOffset: 0.5,
+          // Larger in-memory buffer
+          maxBufferSize: 60 * 1000 * 1000,
+          // Don't stall the whole pipeline on one bad frag
+          progressive: true,
         });
         hlsRef.current = hls;
         hls.loadSource(streamUrl || '');
         hls.attachMedia(v);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        hls.on(Hls.Events.MANIFEST_PARSED, (_e, data) => {
+          // Auto-select a sensible starting level (not the highest)
+          if (data.levels.length > 2) {
+            const midLevel = Math.floor(data.levels.length / 2);
+            hls.startLevel = midLevel;
+          }
           v.play().catch(() => { /* autoplay blocked, user must tap */ });
         });
         hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -86,7 +111,8 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
           if (data.fatal) {
             switch (data.type) {
               case Hls.ErrorTypes.NETWORK_ERROR:
-                hls.startLoad();
+                // Retry with a small delay to let the proxy recover
+                setTimeout(() => hls.startLoad(), 500);
                 break;
               case Hls.ErrorTypes.MEDIA_ERROR:
                 hls.recoverMediaError();
@@ -313,9 +339,12 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
               v.muted = muted;
             }
           }}
-          onWaiting={() => setLoading(true)}
-          onPlaying={() => setLoading(false)}
-          onCanPlay={() => setLoading(false)}
+          onWaiting={() => {
+            setLoading(true);
+            // If we're stuck waiting for >3s, show the stall overlay
+            if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
+            stallTimerRef.current = setTimeout(() => setStalled(true), 3000);
+          }}
           onTimeUpdate={() => {
             const v = videoRef.current; if (!v) return;
             setPosition(v.currentTime);
@@ -344,10 +373,38 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
 
         {/* Loading spinner */}
         <AnimatePresence>
-          {loading && playing && (
+          {loading && playing && !stalled && (
             <motion.div className="absolute inset-0 flex items-center justify-center pointer-events-none"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <div className="w-12 h-12 rounded-full border-3 border-white/20 border-t-primary-400 animate-spin" style={{ borderWidth: '3px' }} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Stalled / buffering overlay with retry */}
+        <AnimatePresence>
+          {stalled && (
+            <motion.div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm gap-3"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <AlertCircle className="w-10 h-10 text-white/80" />
+              <p className="text-white text-sm font-medium">Video is taking longer to load</p>
+              <button
+                onClick={() => {
+                  setStalled(false);
+                  const v = videoRef.current;
+                  if (v && isHls && hlsRef.current) {
+                    hlsRef.current.startLoad();
+                  } else if (v) {
+                    const current = v.currentTime;
+                    v.load();
+                    v.currentTime = current;
+                    v.play().catch(() => {});
+                  }
+                }}
+                className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-sm font-semibold transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" /> Retry
+              </button>
             </motion.div>
           )}
         </AnimatePresence>

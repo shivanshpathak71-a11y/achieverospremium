@@ -48,6 +48,8 @@ Deno.serve(async (req: Request) => {
     const upstreamHeaders: Record<string, string> = {
       "User-Agent": "Mozilla/5.0 (compatible; HLSCoordinator/1.0)",
       "Accept": "*/*",
+      "Accept-Encoding": "gzip, deflate, br",
+      "Connection": "keep-alive",
     };
     const range = req.headers.get("Range");
     if (range) upstreamHeaders["Range"] = range;
@@ -75,7 +77,7 @@ Deno.serve(async (req: Request) => {
         headers: {
           ...corsHeaders,
           "Content-Type": "application/vnd.apple.mpegurl",
-          "Cache-Control": "public, max-age=10",
+          "Cache-Control": "public, max-age=5",
         },
       });
     }
@@ -84,7 +86,8 @@ Deno.serve(async (req: Request) => {
     const responseHeaders: Record<string, string> = {
       ...corsHeaders,
       "Content-Type": contentType,
-      "Cache-Control": "public, max-age=3600",
+      // Long cache for segments — they never change
+      "Cache-Control": "public, max-age=86400, immutable",
     };
 
     // Preserve Content-Length and Content-Range for Range requests (206)
