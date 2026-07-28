@@ -12,6 +12,7 @@ export type Route =
   | { name: 'test-series' }
   | { name: 'free-content' }
   | { name: 'previous-papers' }
+  | { name: 'ai-assistant' }
   | { name: 'more' }
   | { name: 'brand' };
 

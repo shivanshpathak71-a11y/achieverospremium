@@ -18,6 +18,7 @@ const ProfilePage      = lazy(() => import('./components/ProfilePage').then(m =>
 const AdminPage        = lazy(() => import('./components/AdminPage').then(m => ({ default: m.AdminPage })));
 const LoginPage        = lazy(() => import('./components/LoginPage').then(m => ({ default: m.LoginPage })));
 const BrandPage        = lazy(() => import('./components/BrandPage').then(m => ({ default: m.BrandPage })));
+const AiAssistantPage = lazy(() => import('./components/AiAssistantPage').then(m => ({ default: m.AiAssistantPage })));
 
 function Loading() {
   return (
@@ -50,6 +51,7 @@ function Routes() {
       case 'test-series':    return <SimplePage title="Test Series" subtitle="Practice tests and mock exams." icon="FileText" />;
       case 'free-content':   return <SimplePage title="Free Content" subtitle="Access free study material and sample lessons." icon="BookOpen" />;
       case 'previous-papers': return <SimplePage title="Previous Year Papers" subtitle="Previous year question papers with solutions." icon="FileArchive" />;
+      case 'ai-assistant':  return <AiAssistantPage />;
       case 'more':           return <SimplePage title="More" subtitle="Settings, help, and additional features." icon="MoreHorizontal" />;
       case 'brand':           return <BrandPage />;
       default:               return <HomePage />;
