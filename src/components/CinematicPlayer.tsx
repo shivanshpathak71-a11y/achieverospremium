@@ -56,11 +56,17 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
     if (!v || !lecture.video_url) return;
 
     const isHls = lecture.video_url.includes('.m3u8');
+    // selectionwaylive CDN blocks browser Origin headers — route through proxy
+    const needsProxy = lecture.video_url.includes('selectionwaylive.hranker.com');
+    const PROXY_BASE = 'https://hdkbxuxzedsqyiccwomw.supabase.co/functions/v1/hls-proxy';
+    const streamUrl = needsProxy
+      ? `${PROXY_BASE}?u=${encodeURIComponent(lecture.video_url)}&rewrite=1`
+      : lecture.video_url;
     if (isHls) {
       if (Hls.isSupported()) {
         const hls = new Hls({ enableWorker: true, lowLatencyMode: false });
         hlsRef.current = hls;
-        hls.loadSource(lecture.video_url);
+        hls.loadSource(streamUrl);
         hls.attachMedia(v);
         hls.on(Hls.Events.ERROR, (_event, data) => {
           if (data.fatal) {
@@ -74,9 +80,11 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
         return () => { hls.destroy(); hlsRef.current = null; };
       }
       // Native HLS support (Safari/iOS) — set src directly
+      v.src = streamUrl;
+    } else {
+      // Plain MP4 — browser handles it via the src attribute
       v.src = lecture.video_url;
     }
-    // Plain MP4 — browser handles it via the src attribute
   }, [lecture.video_url]);
 
   // Persist settings
