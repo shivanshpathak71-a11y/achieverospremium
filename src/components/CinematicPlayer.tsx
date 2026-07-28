@@ -4,7 +4,7 @@ import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize,
   Settings, Check, ChevronLeft, SkipForward, SkipBack,
   Monitor, PictureInPicture, Camera, Lock, Unlock,
-  Repeat, Gauge,
+  Repeat, Gauge, Radio,
 } from 'lucide-react';
 import Hls from 'hls.js';
 import type { Lecture } from '../lib/supabase';
@@ -333,6 +333,14 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
           }}
           onVolumeChange={() => { const v = videoRef.current; if (v) { setMuted(v.muted); setVolume(v.volume); } }}
         />
+
+        {/* LIVE badge for live classes */}
+        {lecture.is_live && (
+          <div className="absolute top-3 left-3 flex items-center gap-1 bg-red-500 rounded-md px-1.5 py-0.5 shadow-lg pointer-events-none">
+            <Radio className="w-3 h-3 text-white fill-white animate-pulse" />
+            <span className="text-[10px] font-bold text-white tracking-wide">LIVE</span>
+          </div>
+        )}
 
         {/* Loading spinner */}
         <AnimatePresence>

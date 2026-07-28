@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion';
-import { ChevronRight, BookOpen, Clock, Flame, Target, TrendingUp, PlayCircle, BarChart3, Award } from 'lucide-react';
+import { ChevronRight, BookOpen, Clock, Flame, Target, TrendingUp, PlayCircle, BarChart3, Award, Radio } from 'lucide-react';
 import { useRouter } from '../lib/router';
 import { useSubjects, useAllChapters, useAllLectures, formatDuration } from '../lib/hooks';
-import { getContinueWatching, getStudyStreak, getTodayStudySeconds, getDailyGoal, getWeeklyStudySeconds, getTotalStudySeconds, getCourseProgress } from '../lib/storage';
+import { getStudyStreak, getTodayStudySeconds, getDailyGoal, getWeeklyStudySeconds, getTotalStudySeconds, getCourseProgress } from '../lib/storage';
 import * as LucideIcons from 'lucide-react';
 
 const FALLBACK_THUMB = 'https://images.pexels.com/photos/256541/pexels-photo-256541.jpeg?auto=compress&cs=tinysrgb&w=400';
@@ -60,7 +60,6 @@ export function HomePage() {
 
   if (subjectsLoading || chaptersLoading) return <HomeSkeleton />;
 
-  const continueWatching = getContinueWatching().slice(0, 4);
   const streak = getStudyStreak();
   const todaySec = getTodayStudySeconds();
   const goalSec = getDailyGoal();
@@ -71,10 +70,7 @@ export function HomePage() {
   const completedLectures = lectures.filter((l) => getCourseProgress([l.id]) === 100).length;
   const overallPct = totalLectures > 0 ? Math.round((completedLectures / totalLectures) * 100) : 0;
 
-  const continueLectures = continueWatching
-    .map((cw) => lectures.find((l) => l.id === cw.lectureId))
-    .filter(Boolean)
-    .slice(0, 4) as typeof lectures;
+  const liveLectures = lectures.filter((l) => l.is_live).slice(0, 6);
 
   return (
     <div className="pt-20 pb-24 lg:pb-12 max-w-7xl mx-auto px-4">
@@ -112,18 +108,23 @@ export function HomePage() {
         </motion.div>
       </div>
 
-      {/* Continue Watching + Weekly Graph */}
+      {/* Live Classes + Weekly Graph */}
       <div className="grid lg:grid-cols-3 gap-4 mb-6">
-        {/* Continue Watching */}
+        {/* Live Classes */}
         <motion.div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl p-5"
           initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25, duration: 0.35 }}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-sm text-gray-900 flex items-center gap-2"><PlayCircle className="w-4 h-4 text-primary-500" /> Continue Watching</h2>
+            <h2 className="font-bold text-sm text-gray-900 flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+              </span>
+              Live Classes
+            </h2>
           </div>
-          {continueLectures.length > 0 ? (
+          {liveLectures.length > 0 ? (
             <div className="grid sm:grid-cols-2 gap-3">
-              {continueLectures.map((lec) => {
-                const prog = getCourseProgress([lec.id]);
+              {liveLectures.map((lec) => {
                 const ch = lec.chapter;
                 return (
                   <button key={lec.id} onClick={() => navigate({ name: 'lecture', subjectSlug: ch?.subject?.slug || '', chapterSlug: ch?.slug || '', lectureId: lec.id })}
@@ -131,11 +132,15 @@ export function HomePage() {
                     <div className="relative w-20 h-14 rounded-lg overflow-hidden flex-shrink-0">
                       <img src={lec.thumbnail_url || FALLBACK_THUMB} alt="" loading="lazy" className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/20 flex items-center justify-center"><PlayCircle className="w-5 h-5 text-white" /></div>
+                      <div className="absolute top-1 left-1 flex items-center gap-0.5 bg-red-500 rounded px-1 py-0.5">
+                        <Radio className="w-2.5 h-2.5 text-white fill-white" />
+                        <span className="text-[8px] font-bold text-white tracking-wide">LIVE</span>
+                      </div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-gray-900 line-clamp-2">{lec.title}</p>
                       <p className="text-[10px] text-gray-400 line-clamp-1">{ch?.subject?.title} · {ch?.title}</p>
-                      {prog > 0 && <div className="h-1 rounded-full bg-gray-100 mt-1.5 overflow-hidden"><div className="h-full rounded-full bg-primary-500" style={{ width: `${prog}%` }} /></div>}
+                      <p className="text-[10px] text-red-500 font-medium mt-0.5">{lec.teacher_name || 'Live Class'}</p>
                     </div>
                   </button>
                 );
@@ -143,8 +148,8 @@ export function HomePage() {
             </div>
           ) : (
             <div className="text-center py-8">
-              <PlayCircle className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm text-gray-400">No lectures in progress yet. Start watching to see them here.</p>
+              <Radio className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+              <p className="text-sm text-gray-400">No live classes right now. Check back later.</p>
             </div>
           )}
         </motion.div>
