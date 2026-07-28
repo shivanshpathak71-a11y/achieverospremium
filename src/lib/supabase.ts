@@ -7,6 +7,31 @@ export const supabase = createClient(url, anonKey, {
   auth: { persistSession: true, autoRefreshToken: true },
 });
 
+export interface TimeTableEntry {
+  topic: string;
+  time: string;
+  _id?: string;
+}
+
+export interface FAQEntry {
+  id?: string;
+  question: string;
+  answer: string;
+}
+
+export interface FacultyDetails {
+  id?: string;
+  name: string;
+  designation?: string;
+  bio?: string;
+  imageUrl?: string;
+  experience?: string;
+  reach?: string;
+  description?: string;
+  socialLinks?: string[];
+  videoUrl?: string;
+}
+
 export interface Subject {
   id: string;
   slug: string;
@@ -18,6 +43,21 @@ export interface Subject {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  banner_url: string | null;
+  banner_square_url: string | null;
+  validity: string | null;
+  price: number | null;
+  discount_price: number | null;
+  live_classes_count: number | null;
+  recorded_classes_count: number | null;
+  student_count: number | null;
+  time_table: TimeTableEntry[] | null;
+  faqs: FAQEntry[] | null;
+  faculty_details: FacultyDetails | null;
+  course_highlights: string[] | null;
+  intro_video_id: string | null;
+  main_category: string | null;
+  source_batch_id: string | null;
 }
 
 export interface Chapter {
@@ -32,6 +72,17 @@ export interface Chapter {
   subject?: Subject;
 }
 
+export interface ClassTest {
+  name: string;
+  seriesId: number | null;
+  maxAttemptedLimit: number | null;
+}
+
+export interface PdfNameEntry {
+  name: string;
+  url: string;
+}
+
 export interface Lecture {
   id: string;
   chapter_id: string;
@@ -41,6 +92,8 @@ export interface Lecture {
   video_url: string | null;
   pdf_url: string | null;
   pdf_urls: string[] | null;
+  pdf_names: PdfNameEntry[] | null;
+  class_tests: ClassTest[] | null;
   source_video_urls: string[] | null;
   is_live: boolean;
   thumbnail_url: string | null;

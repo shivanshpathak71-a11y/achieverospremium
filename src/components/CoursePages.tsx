@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Play, Clock, FileText, Pin, BookOpen, CheckCircle, Calendar, Radio } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronLeft, ChevronRight, Play, Clock, FileText, Pin, BookOpen, CheckCircle, Calendar, Radio, Clock3, BadgeIndianRupee, Users, ShieldCheck, ChevronDown, Award, Youtube } from 'lucide-react';
 import { useRouter } from '../lib/router';
 import { useSubjects, useSubject, useChaptersBySubjectSlug, useLectures, useAllLectures, useAllChapters, formatDuration } from '../lib/hooks';
 import { getProgress, getCourseProgress, getAllProgress } from '../lib/storage';
@@ -11,6 +12,21 @@ function getIcon(name: string | null) {
   if (!name) return BookOpen;
   const Icon = (LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>>)[name];
   return Icon || BookOpen;
+}
+
+function FAQItem({ question, answer }: { question: string; answer: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between gap-3 p-4 text-left">
+        <span className="font-medium text-sm text-gray-900">{question}</span>
+        <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="px-4 pb-4 text-sm text-gray-600 leading-relaxed">{answer}</div>
+      )}
+    </div>
+  );
 }
 
 export function CourseListPage() {
@@ -86,6 +102,95 @@ export function CourseDetailPage({ slug }: { slug: string }) {
         <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: `${subject.color || '#14b8a6'}15` }}><Icon className="w-8 h-8" style={{ color: subject.color || '#14b8a6' }} /></div>
         <div><h1 className="font-bold text-2xl text-gray-900">{subject.title}</h1>{subject.description && <p className="text-sm text-gray-500">{subject.description}</p>}</div>
       </motion.div>
+
+      {/* Course meta badges */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        {subject.main_category && <span className="badge bg-primary-50 text-primary-600 border border-primary-200 text-xs px-3 py-1">{subject.main_category}</span>}
+        {subject.validity && <span className="badge bg-blue-50 text-blue-600 border border-blue-200 text-xs px-3 py-1 flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> {subject.validity} validity</span>}
+        {subject.live_classes_count != null && <span className="badge bg-red-50 text-red-600 border border-red-200 text-xs px-3 py-1 flex items-center gap-1"><Radio className="w-3 h-3" /> {subject.live_classes_count} live classes</span>}
+        {subject.student_count != null && subject.student_count > 0 && <span className="badge bg-gray-50 text-gray-600 border border-gray-200 text-xs px-3 py-1 flex items-center gap-1"><Users className="w-3 h-3" /> {subject.student_count} students</span>}
+        {subject.price != null && (
+          <span className="badge bg-amber-50 text-amber-600 border border-amber-200 text-xs px-3 py-1 flex items-center gap-1"><BadgeIndianRupee className="w-3 h-3" /> {subject.discount_price != null ? <><span className="line-through text-gray-400">{subject.price}</span> {subject.discount_price}</> : subject.price}</span>
+        )}
+      </div>
+
+      {/* Banner image */}
+      {subject.banner_url && (
+        <div className="mb-6 rounded-2xl overflow-hidden shadow-soft">
+          <img src={subject.banner_url} alt={subject.title} className="w-full h-auto object-cover" />
+        </div>
+      )}
+
+      {/* Course highlights */}
+      {subject.course_highlights && subject.course_highlights.length > 0 && (
+        <div className="mb-6 bg-white border border-gray-200 rounded-2xl p-5">
+          <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2"><Award className="w-4 h-4 text-amber-500" /> Course Highlights</h3>
+          <div className="space-y-2">
+            {subject.course_highlights.map((h, i) => (
+              <div key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                <CheckCircle className="w-4 h-4 text-success-500 flex-shrink-0 mt-0.5" />
+                <span>{h}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Timetable */}
+      {subject.time_table && subject.time_table.length > 0 && (
+        <div className="mb-6 bg-white border border-gray-200 rounded-2xl p-5">
+          <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2"><Calendar className="w-4 h-4 text-primary-500" /> Weekly Timetable</h3>
+          <div className="space-y-2">
+            {subject.time_table.map((entry, i) => (
+              <div key={i} className="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-xl">
+                <span className="font-semibold text-sm text-gray-900">{entry.topic}</span>
+                <span className="text-xs text-gray-600 text-right">{entry.time}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Faculty details */}
+      {subject.faculty_details && (
+        <div className="mb-6 bg-white border border-gray-200 rounded-2xl p-5">
+          <h3 className="font-bold text-gray-900 mb-3">Your Faculty</h3>
+          <div className="flex items-start gap-4">
+            {subject.faculty_details.imageUrl && (
+              <img src={subject.faculty_details.imageUrl} alt={subject.faculty_details.name} className="w-16 h-16 rounded-full object-cover flex-shrink-0" />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-gray-900">{subject.faculty_details.name}</p>
+              {subject.faculty_details.designation && <p className="text-xs text-gray-500 mb-1">{subject.faculty_details.designation}</p>}
+              {subject.faculty_details.experience && <p className="text-xs text-primary-500 flex items-center gap-1 mb-2"><Clock3 className="w-3 h-3" /> {subject.faculty_details.experience}</p>}
+              {subject.faculty_details.reach && <p className="text-xs text-gray-500 flex items-center gap-1 mb-2"><Users className="w-3 h-3" /> {subject.faculty_details.reach}</p>}
+              {subject.faculty_details.description && <p className="text-sm text-gray-600 leading-relaxed">{subject.faculty_details.description}</p>}
+              {subject.faculty_details.socialLinks && subject.faculty_details.socialLinks.length > 0 && (
+                <div className="flex gap-2 mt-3">
+                  {subject.faculty_details.socialLinks.map((link, i) => (
+                    <a key={i} href={link} target="_blank" rel="noreferrer" className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"><Youtube className="w-3 h-3" /> Watch</a>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FAQs */}
+      {subject.faqs && subject.faqs.length > 0 && (
+        <div className="mb-6">
+          <h3 className="font-bold text-gray-900 mb-3">Frequently Asked Questions</h3>
+          <div className="space-y-2">
+            {subject.faqs.map((faq, i) => (
+              <FAQItem key={i} question={faq.question} answer={faq.answer} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Chapters */}
+      <h3 className="font-bold text-gray-900 mb-3">Chapters</h3>
       <div className="space-y-3">
         {chapters.map((ch, i) => {
           const chapterLectures = lectures.filter((l) => l.chapter_id === ch.id);

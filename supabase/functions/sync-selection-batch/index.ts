@@ -1,3 +1,4 @@
+// sync-selection-batch: syncs course + lectures from selectionway API
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const corsHeaders = {
@@ -46,7 +47,7 @@ Deno.serve(async (req: Request) => {
     const classesData = await classesRes.json();
     const topics = classesData.data.classes;
 
-    // 3. Upsert subject
+    // 3. Upsert subject with all course-level enrichment fields
     const subjectSlug = "selection-batch-10";
     const { data: subjectRow } = await supabase
       .from("subjects")
@@ -54,24 +55,39 @@ Deno.serve(async (req: Request) => {
       .eq("source_batch_id", SOURCE_BATCH_ID)
       .maybeSingle();
 
+    const courseEnrichment = {
+      title: course.title,
+      description: course.description?.join(" ") || null,
+      banner_url: course.banner || null,
+      banner_square_url: course.bannerSquare || null,
+      validity: course.validity || null,
+      price: course.price ?? null,
+      discount_price: course.discountPrice ?? null,
+      live_classes_count: course.liveClassesCount ?? null,
+      recorded_classes_count: course.recordedClassesCount ?? null,
+      student_count: course.studentCount ?? null,
+      time_table: course.timeTable || null,
+      faqs: course.faqs || null,
+      faculty_details: course.facultyDetails || null,
+      course_highlights: course.courseHighlights || null,
+      intro_video_id: course.introVideoId || null,
+      main_category: course.mainCategory?.mainCategoryName || null,
+      updated_at: new Date().toISOString(),
+    };
+
     let subjectId: string;
     if (subjectRow) {
       subjectId = subjectRow.id;
-      await supabase.from("subjects").update({
-        title: course.title,
-        description: course.description?.join(" ") || null,
-        updated_at: new Date().toISOString(),
-      }).eq("id", subjectId);
+      await supabase.from("subjects").update(courseEnrichment).eq("id", subjectId);
     } else {
       const { data: newSubject, error } = await supabase.from("subjects").insert({
         slug: subjectSlug,
-        title: course.title,
-        description: course.description?.join(" ") || null,
         icon: "GraduationCap",
         color: "teal",
         gradient: "from-teal-500 to-cyan-500",
         sort_order: 0,
         source_batch_id: SOURCE_BATCH_ID,
+        ...courseEnrichment,
       }).select("id").single();
       if (error) throw new Error(`Failed to create subject: ${error.message}`);
       subjectId = newSubject.id;
@@ -83,17 +99,25 @@ Deno.serve(async (req: Request) => {
       .select("id, source_topic_id, slug, sort_order")
       .eq("subject_id", subjectId);
 
-    const { data: existingLectures } = await supabase
-      .from("lectures")
-      .select("id, source_class_id, slug, sort_order")
-      .in("chapter_id", existingChapters?.map(c => c.id) || ["00000000-0000-0000-0000-000000000000"]);
+    const chapterIds = (existingChapters || []).map(c => c.id);
+    let existingLectures: any[] | null = null;
+    if (chapterIds.length > 0) {
+      const { data: lecData, error: lecErr } = await supabase
+        .from("lectures")
+        .select("id, source_class_id, slug, sort_order")
+        .in("chapter_id", chapterIds);
+      if (lecErr) {
+        console.warn(`Lecture fetch warning: ${lecErr.message}`);
+      }
+      existingLectures = lecData;
+    }
 
-    const chapterMap = new Map<string, string>(); // source_topic_id -> chapter uuid
+    const chapterMap = new Map<string, string>();
     for (const ch of existingChapters || []) {
       if (ch.source_topic_id) chapterMap.set(ch.source_topic_id, ch.id);
     }
 
-    const lectureMap = new Map<string, string>(); // source_class_id -> lecture uuid
+    const lectureMap = new Map<string, string>();
     for (const lec of existingLectures || []) {
       if (lec.source_class_id) lectureMap.set(lec.source_class_id, lec.id);
     }
@@ -128,7 +152,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 6. Bulk upsert chapters (insert new ones first)
+    // 6. Bulk upsert chapters
     const newChapters = chapterUpserts.filter(c => !c.id);
     const existingChaptersToUpdate = chapterUpserts.filter(c => c.id);
 
@@ -182,14 +206,27 @@ Deno.serve(async (req: Request) => {
 
         const videoUrl = allVideoUrls[0] || null;
 
-        // Collect ALL PDF URLs
+        // Collect ALL PDF URLs and names
         const allPdfUrls: string[] = [];
+        const pdfNames: { name: string; url: string }[] = [];
         if (cls.classPdf && cls.classPdf.length > 0) {
           for (const pdf of cls.classPdf) {
-            if (pdf.url) allPdfUrls.push(pdf.url);
+            if (pdf.url) {
+              allPdfUrls.push(pdf.url);
+              pdfNames.push({ name: pdf.name || pdf.url.split('/').pop() || `PDF ${pdfNames.length + 1}`, url: pdf.url });
+            }
           }
         }
         const primaryPdfUrl = allPdfUrls[0] || null;
+
+        // Collect class tests
+        const classTests = (cls.classTest && cls.classTest.length > 0)
+          ? cls.classTest.map((t: any) => ({
+              name: t.name || 'Test',
+              seriesId: t.seriesId ?? null,
+              maxAttemptedLimit: t.maxAttemptedLimit ?? null,
+            }))
+          : null;
 
         const lectureSlug = slugify(cls.title) + "-" + cls.classId.slice(-6);
 
@@ -199,7 +236,10 @@ Deno.serve(async (req: Request) => {
           video_url: videoUrl,
           pdf_url: primaryPdfUrl,
           pdf_urls: allPdfUrls.length > 0 ? allPdfUrls : null,
+          pdf_names: pdfNames.length > 0 ? pdfNames : null,
+          class_tests: classTests,
           source_video_urls: allVideoUrls.length > 0 ? allVideoUrls : null,
+          source_class_id: cls.classId,
           is_live: cls.isLive || false,
           duration_seconds: Math.round(cls.duration || 0),
           teacher_name: cls.teacherName || null,
@@ -229,7 +269,6 @@ Deno.serve(async (req: Request) => {
     // 8. Bulk insert new lectures
     let newClasses = 0;
     if (lectureInserts.length > 0) {
-      // Insert in batches of 50 to avoid payload limits
       for (let i = 0; i < lectureInserts.length; i += 50) {
         const batch = lectureInserts.slice(i, i + 50);
         const { error: insErr } = await supabase.from("lectures").insert(batch);
@@ -246,11 +285,13 @@ Deno.serve(async (req: Request) => {
     if (lectureUpdates.length > 0) {
       for (let i = 0; i < lectureUpdates.length; i += 50) {
         const batch = lectureUpdates.slice(i, i + 50);
-        const { error: updErr } = await supabase.from("lectures").upsert(batch, { onConflict: "id" });
-        if (updErr) {
-          console.warn(`Lecture update batch ${i} warning: ${updErr.message}`);
-        } else {
-          updatedClasses += batch.length;
+        for (const lec of batch) {
+          const { error: updErr } = await supabase.from("lectures").update(lec).eq("id", lec.id);
+          if (updErr) {
+            console.warn(`Lecture update warning for ${lec.id}: ${updErr.message}`);
+          } else {
+            updatedClasses++;
+          }
         }
       }
     }

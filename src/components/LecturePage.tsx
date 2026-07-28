@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronRight, FileText, Play, CircleCheck as CheckCircle, Download, Clock, BookOpen, Award, Bookmark, Pin, FileQuestion, Radio } from 'lucide-react';
+import { ChevronRight, FileText, Play, CircleCheck as CheckCircle, Download, Clock, BookOpen, Award, Bookmark, Pin, FileQuestion, Radio, ExternalLink } from 'lucide-react';
 import { useRouter } from '../lib/router';
 import { useLectureById, useChaptersBySubjectSlug, useLectures, formatDuration } from '../lib/hooks';
 import { getProgress, markCompleted, unmarkCompleted, isDownloaded } from '../lib/storage';
@@ -112,35 +112,54 @@ export function LecturePage({ subjectSlug, chapterSlug, lectureId }: { subjectSl
                     )}
                   </div>
                 )}
-                {activeTab === 'pdf' && (((lecture.pdf_urls && lecture.pdf_urls.length > 0) || lecture.pdf_url) ? (
+                {activeTab === 'pdf' && (((lecture.pdf_names && lecture.pdf_names.length > 0) || (lecture.pdf_urls && lecture.pdf_urls.length > 0) || lecture.pdf_url) ? (
                   <div className="space-y-3">
-                    {(lecture.pdf_urls || (lecture.pdf_url ? [lecture.pdf_url] : [])).map((pdfUrl, idx) => {
-                      const label = (lecture.pdf_urls && lecture.pdf_urls.length > 1) ? `PDF ${idx + 1}` : 'Class PDF';
-                      const filename = pdfUrl.split('/').pop()?.split('?')[0] || label;
-                      return (
-                        <div key={idx} className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
-                          <FileText className="w-5 h-5 text-primary-500 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">{filename}</p>
-                            <p className="text-xs text-gray-500">{label}</p>
-                          </div>
-                          <button onClick={() => window.open(pdfUrl, '_blank')} className="btn-primary text-sm py-2 px-3">View</button>
-                          <a href={pdfUrl} download target="_blank" rel="noreferrer" className="btn-secondary text-sm py-2 px-3"><Download className="w-4 h-4" /></a>
+                    {(lecture.pdf_names || (lecture.pdf_urls || (lecture.pdf_url ? [lecture.pdf_url] : [])).map((url, idx) => ({ name: url.split('/').pop()?.split('?')[0] || `PDF ${idx + 1}`, url }))).map((pdf, idx) => (
+                      <div key={idx} className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
+                        <FileText className="w-5 h-5 text-primary-500 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{pdf.name}</p>
+                          <p className="text-xs text-gray-500">PDF {idx + 1}</p>
                         </div>
-                      );
-                    })}
+                        <button onClick={() => window.open(pdf.url, '_blank')} className="btn-primary text-sm py-2 px-3">View</button>
+                        <a href={pdf.url} download target="_blank" rel="noreferrer" className="btn-secondary text-sm py-2 px-3"><Download className="w-4 h-4" /></a>
+                      </div>
+                    ))}
                   </div>
                 ) : <div className="text-center py-8"><FileText className="w-8 h-8 text-gray-300 mx-auto mb-3" /><p className="text-sm text-gray-400">No PDF attached to this lesson.</p></div>)}
-                {activeTab === 'quiz' && <PracticeQuizPanel lectureTitle={lecture.title} />}
+                {activeTab === 'quiz' && (
+                  <div>
+                    {lecture.class_tests && lecture.class_tests.length > 0 ? (
+                      <div className="space-y-3">
+                        {lecture.class_tests.map((test, idx) => (
+                          <a key={idx} href={`https://selectionway.com/series/${test.seriesId}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors group">
+                            <FileQuestion className="w-5 h-5 text-primary-500 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900">{test.name}</p>
+                              {test.maxAttemptedLimit && <p className="text-xs text-gray-500">Max {test.maxAttemptedLimit} attempts</p>}
+                            </div>
+                            <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-primary-500 transition-colors" />
+                          </a>
+                        ))}
+                      </div>
+                    ) : <PracticeQuizPanel lectureTitle={lecture.title} />}
+                  </div>
+                )}
                 {activeTab === 'mcqs' && <McqPanel lectureTitle={lecture.title} />}
                 {activeTab === 'doubt' && <DoubtPanel />}
                 {activeTab === 'resources' && (
                   <div className="space-y-2">
                     <p className="text-sm text-gray-500 mb-3">Additional resources for this lecture.</p>
-                    {(lecture.pdf_urls || (lecture.pdf_url ? [lecture.pdf_url] : [])).map((pdfUrl, idx) => (
-                      <a key={idx} href={pdfUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                    {(lecture.pdf_names || (lecture.pdf_urls || (lecture.pdf_url ? [lecture.pdf_url] : [])).map((url, idx) => ({ name: url.split('/').pop()?.split('?')[0] || `PDF ${idx + 1}`, url }))).map((pdf, idx) => (
+                      <a key={idx} href={pdf.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
                         <FileText className="w-4 h-4 text-primary-500" />
-                        <span className="text-sm text-gray-700">{pdfUrl.split('/').pop()?.split('?')[0] || `PDF ${idx + 1}`}</span>
+                        <span className="text-sm text-gray-700">{pdf.name}</span>
+                      </a>
+                    ))}
+                    {lecture.class_tests && lecture.class_tests.map((test, idx) => (
+                      <a key={`test-${idx}`} href={`https://selectionway.com/series/${test.seriesId}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                        <FileQuestion className="w-4 h-4 text-amber-500" />
+                        <span className="text-sm text-gray-700">{test.name}</span>
                       </a>
                     ))}
                     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl"><Award className="w-4 h-4 text-amber-500" /><span className="text-sm text-gray-700">Practice MCQs</span></div>
