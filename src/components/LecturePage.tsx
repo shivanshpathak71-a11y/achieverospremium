@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText, Play, CircleCheck as CheckCircle, Download,
   Clock, BookOpen, Award, Bookmark, Pin, FileQuestion, Radio,
-  ExternalLink, ArrowRight, Layers, CheckCircle2
+  ExternalLink, ArrowRight, Layers, CheckCircle2, StickyNote,
+  NotebookPen, Sigma, ClipboardList, FileEdit, Network, BookMarked
 } from 'lucide-react';
 import { useRouter } from '../lib/router';
 import { useLectureById, useChaptersBySubjectSlug, useLectures, formatDuration } from '../lib/hooks';
@@ -14,21 +15,22 @@ import { PracticeQuizPanel, McqPanel, DoubtPanel } from './StudyTools';
 const FALLBACK_THUMB = 'https://images.pexels.com/photos/256541/pexels-photo-256541.jpeg?auto=compress&cs=tinysrgb&w=400';
 
 type Tab = 'description' | 'notes' | 'pdf' | 'quiz' | 'mcqs' | 'doubt' | 'resources';
-type NoteCategory = 'class-notes' | 'short-notes' | 'formula-sheet' | 'assignments' | 'practice-sheets' | 'mind-maps' | 'revision-notes';
+type NoteCategory = 'all' | 'class-notes' | 'short-notes' | 'formula-sheet' | 'assignments' | 'practice-sheets' | 'mind-maps' | 'revision-notes';
 
-const NOTE_CATEGORIES: { id: NoteCategory; label: string; icon: typeof BookOpen }[] = [
-  { id: 'class-notes', label: 'Class Notes', icon: BookOpen },
-  { id: 'short-notes', label: 'Short Notes', icon: FileText },
-  { id: 'formula-sheet', label: 'Formula Sheet', icon: FileQuestion },
-  { id: 'assignments', label: 'Assignments', icon: Award },
-  { id: 'practice-sheets', label: 'Practice Sheets', icon: FileText },
-  { id: 'mind-maps', label: 'Mind Maps', icon: BookOpen },
-  { id: 'revision-notes', label: 'Revision Notes', icon: FileText },
+const NOTE_CATEGORIES: { id: NoteCategory; label: string; icon: typeof BookOpen; keywords: string[] }[] = [
+  { id: 'all', label: 'All Notes', icon: Layers, keywords: [] },
+  { id: 'class-notes', label: 'Class Notes', icon: StickyNote, keywords: ['slide', 'class', 'annotation', 'lecture', 'simplification'] },
+  { id: 'short-notes', label: 'Short Notes', icon: NotebookPen, keywords: ['concise', 'short', 'brief', 'summary'] },
+  { id: 'formula-sheet', label: 'Formula Sheet', icon: Sigma, keywords: ['formula', 'formulae'] },
+  { id: 'assignments', label: 'Assignments', icon: ClipboardList, keywords: ['assignment', 'homework', 'task'] },
+  { id: 'practice-sheets', label: 'Practice Sheets', icon: FileEdit, keywords: ['practice', 'exercise', 'worksheet'] },
+  { id: 'mind-maps', label: 'Mind Maps', icon: Network, keywords: ['mind', 'map', 'mindmap'] },
+  { id: 'revision-notes', label: 'Revision Notes', icon: BookMarked, keywords: ['revision', 'review', 'recall'] },
 ];
 
 const TAB_CONFIG: { id: Tab; label: string; icon: typeof BookOpen }[] = [
   { id: 'description', label: 'Overview', icon: BookOpen },
-  { id: 'notes', label: 'Notes', icon: FileText },
+  { id: 'notes', label: 'Notes', icon: StickyNote },
   { id: 'pdf', label: 'PDF', icon: FileText },
   { id: 'quiz', label: 'Tests', icon: Award },
   { id: 'mcqs', label: 'MCQs', icon: FileQuestion },
@@ -43,6 +45,11 @@ function getPdfList(lecture: { pdf_names: { name: string; url: string }[] | null
   return [];
 }
 
+function matchNoteCategory(pdfName: string, keywords: string[]): boolean {
+  const lower = pdfName.toLowerCase();
+  return keywords.some((kw) => lower.includes(kw));
+}
+
 export function LecturePage({ subjectSlug, chapterSlug, lectureId }: { subjectSlug: string; chapterSlug: string; lectureId: string }) {
   const { navigate } = useRouter();
   const { lecture, loading } = useLectureById(lectureId);
@@ -52,11 +59,25 @@ export function LecturePage({ subjectSlug, chapterSlug, lectureId }: { subjectSl
   const [activeTab, setActiveTab] = useState<Tab>('description');
   const [bookmarked, setBookmarked] = useState(false);
   const [completed, setCompleted] = useState(() => getProgress(lectureId)?.completed || false);
-  const [noteCategory, setNoteCategory] = useState<NoteCategory>('class-notes');
+  const [noteCategory, setNoteCategory] = useState<NoteCategory>('all');
 
   const currentIndex = useMemo(() => lectures.findIndex((l) => l.id === lectureId), [lectures, lectureId]);
   const nextLecture = currentIndex >= 0 && currentIndex < lectures.length - 1 ? lectures[currentIndex + 1] : null;
   const pdfList = lecture ? getPdfList(lecture) : [];
+
+  const filteredNotes = useMemo(() => {
+    if (noteCategory === 'all') return pdfList;
+    const cat = NOTE_CATEGORIES.find((c) => c.id === noteCategory);
+    if (!cat || cat.keywords.length === 0) return pdfList;
+    return pdfList.filter((pdf) => matchNoteCategory(pdf.name, cat.keywords));
+  }, [pdfList, noteCategory]);
+
+  const availableCategories = useMemo(() => {
+    return NOTE_CATEGORIES.filter((cat) => {
+      if (cat.id === 'all') return pdfList.length > 0;
+      return pdfList.some((pdf) => matchNoteCategory(pdf.name, cat.keywords));
+    });
+  }, [pdfList]);
 
   if (loading || !lecture) return (
     <div className="pt-20 max-w-5xl mx-auto px-4">
@@ -66,10 +87,72 @@ export function LecturePage({ subjectSlug, chapterSlug, lectureId }: { subjectSl
   );
 
   return (
-    <div className="pt-16 pb-24 lg:pb-12 max-w-6xl mx-auto px-4">
+    <div className="pt-16 pb-24 lg:pb-12 max-w-7xl mx-auto px-4">
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* ═══ Main Content ═══ */}
-        <div className="flex-1 min-w-0">
+        {/* ═══ LEFT: Lecture List Sidebar ═══ */}
+        <div className="lg:w-72 xl:w-80 flex-shrink-0 order-2 lg:order-1">
+          <div className="lg:sticky lg:top-20">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-sm text-gray-900 flex items-center gap-2">
+                <Layers className="w-4 h-4 text-primary-500" /> {chapter?.title || 'Lessons'}
+              </h3>
+              <span className="text-xs text-gray-400 font-medium">{lectures.length} total</span>
+            </div>
+            <div className="space-y-2 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto lg:pr-1 scrollbar-thin">
+              {lectures.map((lec) => {
+                const prog = getProgress(lec.id);
+                const pct = prog && lec.duration_seconds > 0 ? Math.min(100, (prog.position / lec.duration_seconds) * 100) : 0;
+                const isCompleted = prog?.completed;
+                const isDownloadedFlag = isDownloaded(lec.id);
+                const isCurrent = lec.id === lectureId;
+                return (
+                  <button key={lec.id} onClick={() => navigate({ name: 'lecture', subjectSlug, chapterSlug, lectureId: lec.id })}
+                    className={`w-full bg-white border rounded-2xl p-3 flex items-center gap-3 text-left transition-all duration-300 ${isCurrent ? 'border-primary-300 ring-1 ring-primary-100 shadow-soft' : 'border-gray-200 hover:border-gray-300 hover:shadow-soft'}`}>
+                    <div className="relative w-14 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                      <img src={lec.thumbnail_url || FALLBACK_THUMB} alt="" loading="lazy" className="w-full h-full object-cover" />
+                      {isCurrent ? (
+                        <div className="absolute inset-0 bg-primary-600/40 flex items-center justify-center">
+                          <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                        </div>
+                      ) : isCompleted ? (
+                        <div className="absolute inset-0 bg-success-600/50 flex items-center justify-center">
+                          <CheckCircle className="w-4 h-4 text-white" />
+                        </div>
+                      ) : (
+                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center"><Play className="w-3 h-3 text-white fill-white" /></div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        {lec.is_pinned && <Pin className="w-3 h-3 text-primary-500 flex-shrink-0" />}
+                        {lec.is_new && <span className="badge bg-primary-50 text-primary-600 border border-primary-200 text-[9px]">NEW</span>}
+                        {lec.is_live && (
+                          <span className="inline-flex items-center gap-0.5 bg-rose-500 text-white rounded px-1 py-0.5 text-[8px] font-bold tracking-wide flex-shrink-0">
+                            <Radio className="w-2 h-2 text-white fill-white" /> LIVE
+                          </span>
+                        )}
+                        <p className="text-xs font-semibold text-gray-900 line-clamp-2">{lec.title}</p>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400">
+                        <span className="flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" /> {formatDuration(lec.duration_seconds)}</span>
+                        {(lec.pdf_urls || (lec.pdf_url ? [lec.pdf_url] : [])).length > 0 && <span className="flex items-center gap-0.5 text-primary-500"><FileText className="w-2.5 h-2.5" /> PDF</span>}
+                        {isDownloadedFlag && <span className="flex items-center gap-0.5 text-success-500"><Download className="w-2.5 h-2.5" /> Saved</span>}
+                      </div>
+                      {pct > 0 && (
+                        <div className="h-0.5 rounded-full bg-gray-100 mt-1 overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: isCompleted ? '#22c55e' : '#14b8a6' }} />
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* ═══ RIGHT: Main Content ═══ */}
+        <div className="flex-1 min-w-0 order-1 lg:order-2">
           <CinematicPlayer
             lecture={lecture}
             onEnded={() => { markCompleted(lectureId); setCompleted(true); }}
@@ -160,28 +243,59 @@ export function LecturePage({ subjectSlug, chapterSlug, lectureId }: { subjectSl
                       </div>
                     )}
 
-                    {/* ─── Notes ─── */}
+                    {/* ─── Notes (shows PDFs categorized as notes) ─── */}
                     {activeTab === 'notes' && (
                       <div>
-                        <div className="flex flex-wrap gap-2 mb-5">
-                          {NOTE_CATEGORIES.map((cat) => {
-                            const Icon = cat.icon;
-                            return (
-                              <button key={cat.id} onClick={() => setNoteCategory(cat.id)}
-                                className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 ${noteCategory === cat.id ? 'bg-primary-600 text-white shadow-soft' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}>
-                                <Icon className="w-3.5 h-3.5" /> {cat.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        {lecture.notes ? (
+                        {pdfList.length > 0 ? (
+                          <>
+                            <div className="flex flex-wrap gap-2 mb-5">
+                              {availableCategories.map((cat) => {
+                                const Icon = cat.icon;
+                                return (
+                                  <button key={cat.id} onClick={() => setNoteCategory(cat.id)}
+                                    className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 ${noteCategory === cat.id ? 'bg-primary-600 text-white shadow-soft' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}>
+                                    <Icon className="w-3.5 h-3.5" /> {cat.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {filteredNotes.length > 0 ? (
+                              <div className="space-y-3">
+                                {filteredNotes.map((pdf, idx) => (
+                                  <motion.div key={`${noteCategory}-${idx}`}
+                                    className="flex items-center gap-4 p-4 bg-gradient-to-r from-primary-50/40 to-white rounded-2xl border border-primary-100 hover:border-primary-200 hover:shadow-soft transition-all duration-300 group"
+                                    initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.05, duration: 0.25 }}>
+                                    <div className="w-11 h-11 rounded-xl bg-primary-50 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                                      <StickyNote className="w-5 h-5 text-primary-500" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-semibold text-gray-900 truncate">{pdf.name}</p>
+                                      <p className="text-xs text-gray-400 mt-0.5">Note PDF {filteredNotes.length > 1 ? `· ${idx + 1} of ${filteredNotes.length}` : ''}</p>
+                                    </div>
+                                    <button onClick={() => window.open(pdf.url, '_blank')} className="btn-primary text-xs py-2 px-3.5">View</button>
+                                    <a href={pdf.url} download target="_blank" rel="noreferrer" className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center hover:bg-gray-100 transition-colors">
+                                      <Download className="w-4 h-4 text-gray-500" />
+                                    </a>
+                                  </motion.div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-center py-12">
+                                <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-3">
+                                  <StickyNote className="w-8 h-8 text-gray-300" />
+                                </div>
+                                <p className="text-sm text-gray-400">No {NOTE_CATEGORIES.find((c) => c.id === noteCategory)?.label.toLowerCase()} found for this lesson.</p>
+                              </div>
+                            )}
+                          </>
+                        ) : lecture.notes ? (
                           <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{lecture.notes}</div>
                         ) : (
                           <div className="text-center py-12">
                             <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-3">
-                              <FileText className="w-8 h-8 text-gray-300" />
+                              <StickyNote className="w-8 h-8 text-gray-300" />
                             </div>
-                            <p className="text-sm text-gray-400">No {NOTE_CATEGORIES.find((c) => c.id === noteCategory)?.label.toLowerCase()} attached to this lesson.</p>
+                            <p className="text-sm text-gray-400">No notes attached to this lesson yet.</p>
                           </div>
                         )}
                       </div>
@@ -303,68 +417,6 @@ export function LecturePage({ subjectSlug, chapterSlug, lectureId }: { subjectSl
               </motion.button>
             )}
           </motion.div>
-        </div>
-
-        {/* ═══ Sidebar: Lecture List ═══ */}
-        <div className="lg:w-80 flex-shrink-0">
-          <div className="lg:sticky lg:top-20">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-sm text-gray-900 flex items-center gap-2">
-                <Layers className="w-4 h-4 text-primary-500" /> {chapter?.title || 'Lessons'}
-              </h3>
-              <span className="text-xs text-gray-400 font-medium">{lectures.length} total</span>
-            </div>
-            <div className="space-y-2 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto lg:pr-1">
-              {lectures.map((lec) => {
-                const prog = getProgress(lec.id);
-                const pct = prog && lec.duration_seconds > 0 ? Math.min(100, (prog.position / lec.duration_seconds) * 100) : 0;
-                const isCompleted = prog?.completed;
-                const isDownloadedFlag = isDownloaded(lec.id);
-                const isCurrent = lec.id === lectureId;
-                return (
-                  <button key={lec.id} onClick={() => navigate({ name: 'lecture', subjectSlug, chapterSlug, lectureId: lec.id })}
-                    className={`w-full bg-white border rounded-2xl p-3 flex items-center gap-3 text-left transition-all duration-300 ${isCurrent ? 'border-primary-300 ring-1 ring-primary-100 shadow-soft' : 'border-gray-200 hover:border-gray-300 hover:shadow-soft'}`}>
-                    <div className="relative w-14 h-10 rounded-lg overflow-hidden flex-shrink-0">
-                      <img src={lec.thumbnail_url || FALLBACK_THUMB} alt="" loading="lazy" className="w-full h-full object-cover" />
-                      {isCurrent ? (
-                        <div className="absolute inset-0 bg-primary-600/40 flex items-center justify-center">
-                          <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                        </div>
-                      ) : isCompleted ? (
-                        <div className="absolute inset-0 bg-success-600/50 flex items-center justify-center">
-                          <CheckCircle className="w-4 h-4 text-white" />
-                        </div>
-                      ) : (
-                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center"><Play className="w-3 h-3 text-white fill-white" /></div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        {lec.is_pinned && <Pin className="w-3 h-3 text-primary-500 flex-shrink-0" />}
-                        {lec.is_new && <span className="badge bg-primary-50 text-primary-600 border border-primary-200 text-[9px]">NEW</span>}
-                        {lec.is_live && (
-                          <span className="inline-flex items-center gap-0.5 bg-rose-500 text-white rounded px-1 py-0.5 text-[8px] font-bold tracking-wide flex-shrink-0">
-                            <Radio className="w-2 h-2 text-white fill-white" /> LIVE
-                          </span>
-                        )}
-                        <p className="text-xs font-semibold text-gray-900 line-clamp-2">{lec.title}</p>
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400">
-                        <span className="flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" /> {formatDuration(lec.duration_seconds)}</span>
-                        {(lec.pdf_urls || (lec.pdf_url ? [lec.pdf_url] : [])).length > 0 && <span className="flex items-center gap-0.5 text-primary-500"><FileText className="w-2.5 h-2.5" /> PDF</span>}
-                        {isDownloadedFlag && <span className="flex items-center gap-0.5 text-success-500"><Download className="w-2.5 h-2.5" /> Saved</span>}
-                      </div>
-                      {pct > 0 && (
-                        <div className="h-0.5 rounded-full bg-gray-100 mt-1 overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: isCompleted ? '#22c55e' : '#14b8a6' }} />
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         </div>
       </div>
     </div>
