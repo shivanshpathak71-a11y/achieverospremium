@@ -4,7 +4,7 @@ import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize,
   Settings, Check, ChevronLeft, SkipForward, SkipBack,
   Monitor, PictureInPicture, Camera, Lock, Unlock,
-  Repeat, Gauge, Radio, AlertCircle, RefreshCw,
+  Repeat, Gauge, Radio,
 } from 'lucide-react';
 import Hls from 'hls.js';
 import type { Lecture } from '../lib/supabase';
@@ -44,20 +44,18 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
   const [abRepeat, setAbRepeat] = useState<{ a: number | null; b: number | null }>({ a: null, b: null });
   const [showAbHint, setShowAbHint] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const stallTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const [autoNext, setAutoNext] = useState(true);
-  const [stalled, setStalled] = useState(false);
   const [resumeChecked, setResumeChecked] = useState(false);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const lastTapRef = useRef<{ time: number; side: 'left' | 'right' } | null>(null);
   const hlsRef = useRef<Hls | null>(null);
 
-  // hranker CDNs block browser Origin headers for both MP4 and HLS — route all through proxy
+  // HLS needs the proxy because hls.js uses fetch() (CORS-enforced) to download segments.
+  // MP4 files load directly from the CDN — <video src> doesn't enforce CORS, so no proxy needed.
   const PROXY_BASE = 'https://hdkbxuxzedsqyiccwomw.supabase.co/functions/v1/hls-proxy';
   const isHls = lecture.video_url?.includes('.m3u8') ?? false;
-  const needsProxy = lecture.video_url?.includes('hranker.com') ?? false;
-  const streamUrl = needsProxy && lecture.video_url
-    ? `${PROXY_BASE}?u=${encodeURIComponent(lecture.video_url)}${isHls ? '&rewrite=1' : ''}`
+  const streamUrl = isHls && lecture.video_url
+    ? `${PROXY_BASE}?u=${encodeURIComponent(lecture.video_url)}&rewrite=1`
     : lecture.video_url || '';
 
   // HLS stream support
@@ -69,31 +67,18 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: false,
-          liveDurationInfinity: false,
-          // Buffer tuning — keep more ahead to absorb proxy latency
           maxBufferLength: 30,
-          maxMaxBufferLength: 90,
+          maxMaxBufferLength: 60,
           backBufferLength: 30,
-          // Start on a mid-range level instead of highest to avoid early stalls
           startLevel: -1,
-          startFragPrefetch: true,
           testBandwidth: true,
-          // Aggressive retry — proxy can hiccup
           manifestLoadingTimeOut: 20000,
-          manifestLoadingMaxRetry: 5,
+          manifestLoadingMaxRetry: 4,
           levelLoadingTimeOut: 15000,
-          levelLoadingMaxRetry: 6,
+          levelLoadingMaxRetry: 4,
           fragLoadingTimeOut: 30000,
-          fragLoadingMaxRetry: 10,
-          fragLoadingRetryDelay: 400,
-          fragLoadingMaxRetryTimeout: 64000,
-          // Nudge through stalls instead of freezing
-          nudgeMaxRetry: 10,
-          nudgeOffset: 0.5,
-          // Larger in-memory buffer
-          maxBufferSize: 60 * 1000 * 1000,
-          // Don't stall the whole pipeline on one bad frag
-          progressive: true,
+          fragLoadingMaxRetry: 6,
+          fragLoadingRetryDelay: 500,
         });
         hlsRef.current = hls;
         hls.loadSource(streamUrl || '');
@@ -339,12 +324,9 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
               v.muted = muted;
             }
           }}
-          onWaiting={() => {
-            setLoading(true);
-            // If we're stuck waiting for >3s, show the stall overlay
-            if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
-            stallTimerRef.current = setTimeout(() => setStalled(true), 3000);
-          }}
+          onWaiting={() => setLoading(true)}
+          onPlaying={() => setLoading(false)}
+          onCanPlay={() => setLoading(false)}
           onTimeUpdate={() => {
             const v = videoRef.current; if (!v) return;
             setPosition(v.currentTime);
@@ -373,38 +355,10 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
 
         {/* Loading spinner */}
         <AnimatePresence>
-          {loading && playing && !stalled && (
+          {loading && playing && (
             <motion.div className="absolute inset-0 flex items-center justify-center pointer-events-none"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <div className="w-12 h-12 rounded-full border-3 border-white/20 border-t-primary-400 animate-spin" style={{ borderWidth: '3px' }} />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Stalled / buffering overlay with retry */}
-        <AnimatePresence>
-          {stalled && (
-            <motion.div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm gap-3"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <AlertCircle className="w-10 h-10 text-white/80" />
-              <p className="text-white text-sm font-medium">Video is taking longer to load</p>
-              <button
-                onClick={() => {
-                  setStalled(false);
-                  const v = videoRef.current;
-                  if (v && isHls && hlsRef.current) {
-                    hlsRef.current.startLoad();
-                  } else if (v) {
-                    const current = v.currentTime;
-                    v.load();
-                    v.currentTime = current;
-                    v.play().catch(() => {});
-                  }
-                }}
-                className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-sm font-semibold transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" /> Retry
-              </button>
             </motion.div>
           )}
         </AnimatePresence>
