@@ -60,31 +60,15 @@ export function SplashScreen({ visible }: { visible: boolean }) {
                 transition={{ duration: 2.6, ease: EASE, delay: 0.2 }}
               />
 
-              <motion.svg
-                width="88" height="88" viewBox="0 0 48 48" fill="none"
+              <motion.img
+                src="/logos/shivansh-app-icon.svg"
+                width="88" height="88"
+                alt="Shivansh"
                 className="relative"
                 initial={{ rotate: -12 }}
                 animate={{ rotate: 0 }}
                 transition={{ duration: 1.2, ease: EASE, delay: 0.3 }}
-              >
-                <rect width="48" height="48" rx="14" fill="url(#splash_grad)" />
-                <motion.path
-                  d="M24 8L14 40h6.75l1.35-6.75h3.8L27.25 40H34L24 8zm-3.45 21l3.45-9 3.45 9H20.55z"
-                  fill="white"
-                  fillOpacity="0.97"
-                  initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: 1 }}
-                  transition={{ duration: 1.1, delay: 0.6, ease: 'easeInOut' }}
-                />
-                <circle cx="24" cy="12" r="2.5" fill="#FBBF24" />
-                <defs>
-                  <linearGradient id="splash_grad" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#0F766E" />
-                    <stop offset="0.5" stopColor="#0891B2" />
-                    <stop offset="1" stopColor="#0E7490" />
-                  </linearGradient>
-                </defs>
-              </motion.svg>
+              />
 
               {/* Light sweep across logo */}
               <motion.div

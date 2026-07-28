@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { CircleCheck as CheckCircle, Clock, Play, ChevronRight, Trash2, Settings, Moon, Bell, Download, Bookmark, Flame, Target, TrendingUp, LogIn, LogOut, Shield } from 'lucide-react';
+import { CircleCheck as CheckCircle, Clock, Play, ChevronRight, Trash2, Settings, Moon, Bell, Download, Bookmark, Flame, Target, TrendingUp, LogIn, LogOut, Shield, Crown } from 'lucide-react';
 import { useRouter } from '../lib/router';
-import { useAllLectures, formatDuration } from '../lib/hooks';
+import { useAllLectures, formatDuration, usePWA } from '../lib/hooks';
 import { getAllProgress, getContinueWatching, clearAllProgress, getStudyStreak, getTodayStudySeconds, getDailyGoal, getTotalStudySeconds } from '../lib/storage';
 import { useAuth } from '../lib/auth';
 
@@ -115,8 +115,13 @@ export function ProfilePage() {
         <h2 className="font-bold text-gray-900 text-base mb-3 flex items-center gap-2"><Settings className="w-4 h-4 text-gray-400" /> Settings</h2>
         <div className="bg-white border border-gray-200 rounded-2xl divide-y divide-gray-100">
           <SettingRow icon={<Moon className="w-4 h-4 text-gray-500" />} title="Dark Mode" subtitle="Always on" badge="Off" />
-          <SettingRow icon={<Bell className="w-4 h-4 text-gray-500" />} title="Notifications" subtitle="New lesson alerts" badge="Off" />
+          <NotificationRow />
           <SettingRow icon={<Download className="w-4 h-4 text-gray-500" />} title="Download Quality" subtitle="Standard (480p)" chevron />
+          <button onClick={() => navigate({ name: 'brand' })} className="w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left">
+            <div className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center"><Crown className="w-4 h-4 text-amber-500" /></div>
+            <div><p className="text-sm font-semibold text-gray-900">Brand Identity</p><p className="text-[11px] text-gray-400">SHIVANSH logo & assets</p></div>
+            <ChevronRight className="w-4 h-4 text-gray-300 ml-auto" />
+          </button>
         </div>
       </section>
 
@@ -168,5 +173,29 @@ function SettingRow({ icon, title, subtitle, badge, chevron }: { icon: React.Rea
       {badge && <span className="badge bg-gray-100 text-gray-500">{badge}</span>}
       {chevron && <ChevronRight className="w-4 h-4 text-gray-300" />}
     </div>
+  );
+}
+
+function NotificationRow() {
+  const { requestNotificationPermission } = usePWA();
+  const [enabled, setEnabled] = useState(false);
+
+  const toggle = useCallback(async () => {
+    if (enabled) {
+      setEnabled(false);
+      return;
+    }
+    const granted = await requestNotificationPermission();
+    setEnabled(granted);
+  }, [enabled, requestNotificationPermission]);
+
+  return (
+    <button onClick={toggle} className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center"><Bell className="w-4 h-4 text-gray-500" /></div>
+        <div><p className="text-sm font-semibold text-gray-900">Notifications</p><p className="text-[11px] text-gray-400">New lesson alerts</p></div>
+      </div>
+      <span className={`badge ${enabled ? 'bg-primary-50 text-primary-600' : 'bg-gray-100 text-gray-500'}`}>{enabled ? 'On' : 'Off'}</span>
+    </button>
   );
 }

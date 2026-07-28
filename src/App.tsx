@@ -6,6 +6,7 @@ import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
 import { SplashScreen } from './components/SplashScreen';
 import { SimplePage } from './components/SimplePage';
+import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 
 const HomePage         = lazy(() => import('./components/HomePage').then(m => ({ default: m.HomePage })));
 const CourseListPage   = lazy(() => import('./components/CoursePages').then(m => ({ default: m.CourseListPage })));
@@ -16,6 +17,7 @@ const SearchPage       = lazy(() => import('./components/SearchPage').then(m => 
 const ProfilePage      = lazy(() => import('./components/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const AdminPage        = lazy(() => import('./components/AdminPage').then(m => ({ default: m.AdminPage })));
 const LoginPage        = lazy(() => import('./components/LoginPage').then(m => ({ default: m.LoginPage })));
+const BrandPage        = lazy(() => import('./components/BrandPage').then(m => ({ default: m.BrandPage })));
 
 function Loading() {
   return (
@@ -49,6 +51,7 @@ function Routes() {
       case 'free-content':   return <SimplePage title="Free Content" subtitle="Access free study material and sample lessons." icon="BookOpen" />;
       case 'previous-papers': return <SimplePage title="Previous Year Papers" subtitle="Previous year question papers with solutions." icon="FileArchive" />;
       case 'more':           return <SimplePage title="More" subtitle="Settings, help, and additional features." icon="MoreHorizontal" />;
+      case 'brand':           return <BrandPage />;
       default:               return <HomePage />;
     }
   };
@@ -87,6 +90,7 @@ function AppContent() {
       <Navbar />
       <Routes />
       <BottomNav />
+      <PWAInstallPrompt />
     </>
   );
 }

@@ -1,0 +1,75 @@
+{
+  "packageId": "com.shivansh.app",
+  "host": "shivansh.app",
+  "name": "Shivansh — Income Tax Officer",
+  "launcherName": "Shivansh",
+  "display": "fullscreen",
+  "displayOverride": "fullscreen",
+  "orientation": "portrait",
+  "themeColor": "#0B0B0B",
+  "themeColorDark": "#0B0B0B",
+  "navigationColor": "#0B0B0B",
+  "navigationColorDark": "#0B0B0B",
+  "navigationDividerColor": "#0B0B0B",
+  "navigationDividerColorDark": "#0B0B0B",
+  "backgroundColor": "#0B0B0B",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://shivansh.app/logos/shivansh-app-icon-512.png",
+  "maskableIconUrl": "https://shivansh.app/logos/shivansh-app-icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "shivansh"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [
+    {
+      "name": "Courses",
+      "shortName": "Courses",
+      "url": "/?source=shortcut",
+      "iconUrl": "https://shivansh.app/logos/shivansh-app-icon-192.png"
+    },
+    {
+      "name": "Search",
+      "shortName": "Search",
+      "url": "/?source=shortcut",
+      "iconUrl": "https://shivansh.app/logos/shivansh-app-icon-192.png"
+    },
+    {
+      "name": "Profile",
+      "shortName": "Profile",
+      "url": "/?source=shortcut",
+      "iconUrl": "https://shivansh.app/logos/shivansh-app-icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://shivansh.app/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "navigationColor": "#0B0B0B",
+  "navigationColorDark": "#0B0B0B",
+  "navigationDividerColor": "#0B0B0B",
+  "navigationDividerColorDark": "#0B0B0B",
+  "enableSiteSettingsShortcut": true,
+  "features": {
+    "locationDelegation": {
+      "enabled": false
+    },
+    "playBilling": {
+      "enabled": false
+    },
+    "notifications": {
+      "enabled": true
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": false,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://shivansh.app/",
+  "minSdkVersion": 21,
+  "_comment": "Replace shivansh.app with your actual deployed domain before building."
+}
