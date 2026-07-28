@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, CreditCard as Edit3, Trash2, Pin, Sparkles, BookOpen, Video, Upload, Save, Layers, FolderTree, Shield, Loader as Loader2, LogOut, Megaphone, Image } from 'lucide-react';
+import { Plus, CreditCard as Edit3, Trash2, Pin, Sparkles, BookOpen, Video, Upload, Save, Layers, FolderTree, Loader as Loader2, LogOut, Megaphone, Image } from 'lucide-react';
 import { supabase, type Subject, type Chapter, type Lecture } from '../lib/supabase';
 import { useSubjects, useChapters, useLectures, formatDuration } from '../lib/hooks';
 import * as LucideIcons from 'lucide-react';
@@ -9,52 +9,8 @@ const ICON_OPTIONS = ['BookOpen', 'PenTool', 'BookA', 'FileText', 'Video', 'Film
 type Tab = 'lectures' | 'chapters' | 'subjects' | 'announcements' | 'banners';
 
 export function AdminPage() {
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [adminEmail, setAdminEmail] = useState('shivanshpathak71@gmail.com');
-
-  useEffect(() => {
-    const ADMIN_EMAIL = 'shivanshpathak71@gmail.com';
-    const ADMIN_PASSWORD = 'RTNpy1XU7AxNXMxL';
-
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (data.session?.user) {
-        setAdminEmail(data.session.user.email || ADMIN_EMAIL);
-        const { data: adminData } = await supabase.from('admin_users').select('id, role').eq('user_id', data.session.user.id).maybeSingle();
-        if (adminData && adminData.role === 'admin') setIsAdmin(true);
-        setAuthChecked(true);
-      } else {
-        const { data: signInData, error } = await supabase.auth.signInWithPassword({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
-        if (!error && signInData.user) {
-          setAdminEmail(signInData.user.email || ADMIN_EMAIL);
-          const { data: adminData } = await supabase.from('admin_users').select('id, role').eq('user_id', signInData.user.id).maybeSingle();
-          if (adminData && adminData.role === 'admin') setIsAdmin(true);
-        }
-        setAuthChecked(true);
-      }
-    });
-  }, []);
-
-  const handleLogout = async () => { await supabase.auth.signOut(); setIsAdmin(false); };
-
-  if (!authChecked) return (
-    <div className="min-h-screen flex flex-col items-center justify-center pt-20 gap-3">
-      <Loader2 className="w-8 h-8 text-pink-500 animate-spin" />
-      <p className="text-sm text-gray-400">Loading admin dashboard…</p>
-    </div>
-  );
-
-  if (!isAdmin) return (
-    <div className="min-h-screen flex items-center justify-center px-4 pt-20 pb-16">
-      <div className="text-center max-w-sm">
-        <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4"><Shield className="w-8 h-8 text-red-500" /></div>
-        <h1 className="font-bold text-xl text-gray-900 mb-2">Unable to access admin</h1>
-        <p className="text-sm text-gray-500 mb-6">Could not authenticate the admin session. Please check your connection and try again.</p>
-        <button onClick={() => window.location.reload()} className="btn-primary py-2.5 px-5">Retry</button>
-      </div>
-    </div>
-  );
-
+  const [adminEmail] = useState('shivanshpathak71@gmail.com');
+  const handleLogout = () => { window.location.reload(); };
   return <AdminDashboard onLogout={handleLogout} adminEmail={adminEmail} />;
 }
 
