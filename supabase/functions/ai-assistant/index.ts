@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,8 +7,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+
+async function getOpenAiKey(): Promise<string> {
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const { data, error } = await supabase.rpc("get_openai_api_key");
+  if (error || !data) return "";
+  return data as string;
+}
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -90,8 +99,15 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+      return new Response(JSON.stringify({ error: "Supabase not configured." }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const OPENAI_API_KEY = await getOpenAiKey();
     if (!OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: "OpenAI API key not configured. Set OPENAI_API_KEY secret." }), {
+      return new Response(JSON.stringify({ error: "OpenAI API key not configured." }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
