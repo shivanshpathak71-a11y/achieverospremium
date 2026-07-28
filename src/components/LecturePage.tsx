@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronRight, FileText, Play, CircleCheck as CheckCircle, Download, Clock, BookOpen, Award, Bookmark, Pin, FileQuestion } from 'lucide-react';
+import { ChevronRight, FileText, Play, CircleCheck as CheckCircle, Download, Clock, BookOpen, Award, Bookmark, Pin, FileQuestion, Radio } from 'lucide-react';
 import { useRouter } from '../lib/router';
 import { useLectureById, useChaptersBySubjectSlug, useLectures, formatDuration } from '../lib/hooks';
-import { getProgress, markCompleted, isDownloaded } from '../lib/storage';
+import { getProgress, markCompleted, unmarkCompleted, isDownloaded } from '../lib/storage';
 import { CinematicPlayer } from './CinematicPlayer';
 import { PracticeQuizPanel, McqPanel, DoubtPanel } from './StudyTools';
 
@@ -56,7 +56,7 @@ export function LecturePage({ subjectSlug, chapterSlug, lectureId }: { subjectSl
                 <button onClick={() => setBookmarked(!bookmarked)} className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-colors" aria-label="Bookmark">
                   <Bookmark className={`w-4 h-4 ${bookmarked ? 'text-primary-500 fill-primary-500' : 'text-gray-400'}`} />
                 </button>
-                <button onClick={() => { markCompleted(lectureId); setCompleted(true); }} className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${completed ? 'bg-success-50 text-success-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                <button onClick={() => { if (completed) { unmarkCompleted(lectureId); setCompleted(false); } else { markCompleted(lectureId); setCompleted(true); } }} className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${completed ? 'bg-success-50 text-success-600 hover:bg-success-100' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
                   <CheckCircle className="w-4 h-4" /> {completed ? 'Completed' : 'Mark Complete'}
                 </button>
               </div>
@@ -191,6 +191,11 @@ export function LecturePage({ subjectSlug, chapterSlug, lectureId }: { subjectSl
                     <div className="flex items-center gap-1.5">
                       {lec.is_pinned && <Pin className="w-3 h-3 text-primary-500 flex-shrink-0" />}
                       {lec.is_new && <span className="badge bg-primary-50 text-primary-600 border border-primary-200 text-[9px]">NEW</span>}
+                      {lec.is_live && (
+                        <span className="inline-flex items-center gap-0.5 bg-red-500 text-white rounded px-1 py-0.5 text-[8px] font-bold tracking-wide flex-shrink-0">
+                          <Radio className="w-2 h-2 text-white fill-white" /> LIVE
+                        </span>
+                      )}
                       <p className="text-xs font-semibold text-gray-900 line-clamp-2">{lec.title}</p>
                     </div>
                     <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400">

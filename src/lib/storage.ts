@@ -24,6 +24,15 @@ export function markCompleted(lectureId: string) {
   } catch { /* ignore */ }
 }
 
+export function unmarkCompleted(lectureId: string) {
+  try {
+    const existing = getProgress(lectureId);
+    const position = existing?.position || 0;
+    const duration = existing?.duration || 0;
+    localStorage.setItem(PREFIX + 'progress_' + lectureId, JSON.stringify({ position, duration, completed: false, updatedAt: Date.now() }));
+  } catch { /* ignore */ }
+}
+
 export function getAllProgress(): Record<string, { position: number; duration: number; completed: boolean; updatedAt: number }> {
   const result: Record<string, { position: number; duration: number; completed: boolean; updatedAt: number }> = {};
   try {

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Play, Clock, FileText, Pin, BookOpen, CheckCircle, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Play, Clock, FileText, Pin, BookOpen, CheckCircle, Calendar, Radio } from 'lucide-react';
 import { useRouter } from '../lib/router';
 import { useSubjects, useSubject, useChaptersBySubjectSlug, useLectures, useAllLectures, useAllChapters, formatDuration } from '../lib/hooks';
 import { getProgress, getCourseProgress, getAllProgress } from '../lib/storage';
@@ -209,6 +209,11 @@ export function ChapterPage({ subjectSlug, chapterSlug, currentLectureId }: { su
                 <div className="flex items-center gap-2">
                   {lec.is_pinned && <Pin className="w-3 h-3 text-primary-500 flex-shrink-0" />}
                   {lec.is_new && <span className="badge bg-primary-50 text-primary-600 border border-primary-200 text-[9px]">NEW</span>}
+                  {lec.is_live && (
+                    <span className="inline-flex items-center gap-0.5 bg-red-500 text-white rounded px-1 py-0.5 text-[8px] font-bold tracking-wide flex-shrink-0">
+                      <Radio className="w-2 h-2 text-white fill-white" /> LIVE
+                    </span>
+                  )}
                   <p className="font-semibold text-gray-900 text-sm line-clamp-1">{lec.title}</p>
                 </div>
                 <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-400">
