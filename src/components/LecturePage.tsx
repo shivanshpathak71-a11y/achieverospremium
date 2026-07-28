@@ -112,13 +112,23 @@ export function LecturePage({ subjectSlug, chapterSlug, lectureId }: { subjectSl
                     )}
                   </div>
                 )}
-                {activeTab === 'pdf' && (lecture.pdf_url ? (
-                  <div>
-                    <div className="flex items-center gap-3 mb-4">
-                      <button onClick={() => window.open(lecture.pdf_url!, '_blank')} className="btn-primary text-sm py-2.5 px-4"><FileText className="w-4 h-4" /> View PDF</button>
-                      <a href={lecture.pdf_url!} download target="_blank" rel="noreferrer" className="btn-secondary text-sm py-2.5 px-4"><Download className="w-4 h-4" /> Download PDF</a>
-                    </div>
-                    <p className="text-sm text-gray-500">Class PDF is available for this lecture.</p>
+                {activeTab === 'pdf' && (((lecture.pdf_urls && lecture.pdf_urls.length > 0) || lecture.pdf_url) ? (
+                  <div className="space-y-3">
+                    {(lecture.pdf_urls || (lecture.pdf_url ? [lecture.pdf_url] : [])).map((pdfUrl, idx) => {
+                      const label = (lecture.pdf_urls && lecture.pdf_urls.length > 1) ? `PDF ${idx + 1}` : 'Class PDF';
+                      const filename = pdfUrl.split('/').pop()?.split('?')[0] || label;
+                      return (
+                        <div key={idx} className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
+                          <FileText className="w-5 h-5 text-primary-500 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{filename}</p>
+                            <p className="text-xs text-gray-500">{label}</p>
+                          </div>
+                          <button onClick={() => window.open(pdfUrl, '_blank')} className="btn-primary text-sm py-2 px-3">View</button>
+                          <a href={pdfUrl} download target="_blank" rel="noreferrer" className="btn-secondary text-sm py-2 px-3"><Download className="w-4 h-4" /></a>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : <div className="text-center py-8"><FileText className="w-8 h-8 text-gray-300 mx-auto mb-3" /><p className="text-sm text-gray-400">No PDF attached to this lesson.</p></div>)}
                 {activeTab === 'quiz' && <PracticeQuizPanel lectureTitle={lecture.title} />}
@@ -127,7 +137,12 @@ export function LecturePage({ subjectSlug, chapterSlug, lectureId }: { subjectSl
                 {activeTab === 'resources' && (
                   <div className="space-y-2">
                     <p className="text-sm text-gray-500 mb-3">Additional resources for this lecture.</p>
-                    {lecture.pdf_url && <a href={lecture.pdf_url} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"><FileText className="w-4 h-4 text-primary-500" /><span className="text-sm text-gray-700">Lecture PDF</span></a>}
+                    {(lecture.pdf_urls || (lecture.pdf_url ? [lecture.pdf_url] : [])).map((pdfUrl, idx) => (
+                      <a key={idx} href={pdfUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                        <FileText className="w-4 h-4 text-primary-500" />
+                        <span className="text-sm text-gray-700">{pdfUrl.split('/').pop()?.split('?')[0] || `PDF ${idx + 1}`}</span>
+                      </a>
+                    ))}
                     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl"><Award className="w-4 h-4 text-amber-500" /><span className="text-sm text-gray-700">Practice MCQs</span></div>
                     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl"><BookOpen className="w-4 h-4 text-blue-500" /><span className="text-sm text-gray-700">Related Chapters</span></div>
                   </div>
@@ -180,7 +195,7 @@ export function LecturePage({ subjectSlug, chapterSlug, lectureId }: { subjectSl
                     </div>
                     <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400">
                       <span className="flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" /> {formatDuration(lec.duration_seconds)}</span>
-                      {lec.pdf_url && <span className="flex items-center gap-0.5 text-primary-500"><FileText className="w-2.5 h-2.5" /> PDF</span>}
+                      {(lec.pdf_urls || (lec.pdf_url ? [lec.pdf_url] : [])).length > 0 && <span className="flex items-center gap-0.5 text-primary-500"><FileText className="w-2.5 h-2.5" /> PDF</span>}
                       {isDownloadedFlag && <span className="flex items-center gap-0.5 text-success-500"><Download className="w-2.5 h-2.5" /> Saved</span>}
                     </div>
                     {pct > 0 && (

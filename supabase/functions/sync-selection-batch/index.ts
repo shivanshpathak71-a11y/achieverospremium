@@ -11,42 +11,6 @@ const SOURCE_API_BASE = "https://backend.multistreaming.site/api/courses";
 const SOURCE_COURSE_API = `${SOURCE_API_BASE}/${SOURCE_BATCH_ID}`;
 const SOURCE_CLASSES_API = `${SOURCE_API_BASE}/${SOURCE_BATCH_ID}/classes?populate=full`;
 
-interface SourceClass {
-  classId: string;
-  title: string;
-  description: string;
-  teacherName: string;
-  duration: number;
-  class_link: string;
-  mp4Recordings: { url: string; quality: string }[];
-  classPdf: { url?: string }[];
-  addedAt: string;
-  isLive: boolean;
-  topic: { topicName: string; _id: string };
-  section?: { sectionName: string };
-}
-
-interface SourceClassesResponse {
-  state: number;
-  data: {
-    classes: {
-      topicName: string;
-      topicId: string;
-      classes: SourceClass[];
-    }[];
-  };
-}
-
-interface SourceCourseResponse {
-  state: number;
-  data: {
-    title: string;
-    description: string[];
-    banner: string;
-    facultyDetails: { name: string; designation: string; imageUrl: string };
-  };
-}
-
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -71,18 +35,18 @@ Deno.serve(async (req: Request) => {
       headers: { "User-Agent": "ShivanshSync/1.0" },
     });
     if (!courseRes.ok) throw new Error(`Course API returned ${courseRes.status}`);
-    const courseData: SourceCourseResponse = await courseRes.json();
+    const courseData = await courseRes.json();
+    const course = courseData.data;
 
     // 2. Fetch classes grouped by topic
     const classesRes = await fetch(SOURCE_CLASSES_API, {
       headers: { "User-Agent": "ShivanshSync/1.0" },
     });
     if (!classesRes.ok) throw new Error(`Classes API returned ${classesRes.status}`);
-    const classesData: SourceClassesResponse = await classesRes.json();
-
+    const classesData = await classesRes.json();
     const topics = classesData.data.classes;
 
-    // 3. Upsert the subject (Selection Batch)
+    // 3. Upsert subject
     const subjectSlug = "selection-batch-10";
     const { data: subjectRow } = await supabase
       .from("subjects")
@@ -94,161 +58,199 @@ Deno.serve(async (req: Request) => {
     if (subjectRow) {
       subjectId = subjectRow.id;
       await supabase.from("subjects").update({
-        title: courseData.data.title,
-        description: courseData.data.description?.join(" ") || null,
+        title: course.title,
+        description: course.description?.join(" ") || null,
         updated_at: new Date().toISOString(),
       }).eq("id", subjectId);
     } else {
-      // Try by slug first
-      const { data: existing } = await supabase
-        .from("subjects")
-        .select("id")
-        .eq("slug", subjectSlug)
-        .maybeSingle();
-      if (existing) {
-        subjectId = existing.id;
-        await supabase.from("subjects").update({
-          source_batch_id: SOURCE_BATCH_ID,
-          title: courseData.data.title,
-          updated_at: new Date().toISOString(),
-        }).eq("id", subjectId);
-      } else {
-        const { data: newSubject, error } = await supabase.from("subjects").insert({
-          slug: subjectSlug,
-          title: courseData.data.title,
-          description: courseData.data.description?.join(" ") || null,
-          icon: "GraduationCap",
-          color: "teal",
-          gradient: "from-teal-500 to-cyan-500",
-          sort_order: 0,
-          source_batch_id: SOURCE_BATCH_ID,
-        }).select("id").single();
-        if (error) throw new Error(`Failed to create subject: ${error.message}`);
-        subjectId = newSubject.id;
-      }
+      const { data: newSubject, error } = await supabase.from("subjects").insert({
+        slug: subjectSlug,
+        title: course.title,
+        description: course.description?.join(" ") || null,
+        icon: "GraduationCap",
+        color: "teal",
+        gradient: "from-teal-500 to-cyan-500",
+        sort_order: 0,
+        source_batch_id: SOURCE_BATCH_ID,
+      }).select("id").single();
+      if (error) throw new Error(`Failed to create subject: ${error.message}`);
+      subjectId = newSubject.id;
     }
 
-    // 4. Upsert chapters (topics) and lectures (classes)
-    let totalClasses = 0;
-    let newClasses = 0;
-    const chapterSortMap = new Map<string, number>();
+    // 4. Fetch existing chapters and lectures in bulk
+    const { data: existingChapters } = await supabase
+      .from("chapters")
+      .select("id, source_topic_id, slug, sort_order")
+      .eq("subject_id", subjectId);
+
+    const { data: existingLectures } = await supabase
+      .from("lectures")
+      .select("id, source_class_id, slug, sort_order")
+      .in("chapter_id", existingChapters?.map(c => c.id) || ["00000000-0000-0000-0000-000000000000"]);
+
+    const chapterMap = new Map<string, string>(); // source_topic_id -> chapter uuid
+    for (const ch of existingChapters || []) {
+      if (ch.source_topic_id) chapterMap.set(ch.source_topic_id, ch.id);
+    }
+
+    const lectureMap = new Map<string, string>(); // source_class_id -> lecture uuid
+    for (const lec of existingLectures || []) {
+      if (lec.source_class_id) lectureMap.set(lec.source_class_id, lec.id);
+    }
+
+    // 5. Prepare chapter upserts
+    const chapterUpserts: any[] = [];
+    const newChapterSlugs = new Set<string>();
 
     for (let tIdx = 0; tIdx < topics.length; tIdx++) {
       const topic = topics[tIdx];
       const topicId = topic.topicId;
-      const chapterSlug = slugify(topic.topicName);
+      const chapterSlug = slugify(topic.topicName) + "-" + topicId.slice(-6);
 
-      // Upsert chapter by source_topic_id
-      let chapterId: string;
-      const { data: chapterRow } = await supabase
-        .from("chapters")
-        .select("id")
-        .eq("source_topic_id", topicId)
-        .maybeSingle();
-
-      if (chapterRow) {
-        chapterId = chapterRow.id;
-        await supabase.from("chapters").update({
+      if (chapterMap.has(topicId)) {
+        chapterUpserts.push({
+          id: chapterMap.get(topicId),
+          subject_id: subjectId,
+          slug: chapterSlug,
           title: topic.topicName,
           sort_order: tIdx,
-        }).eq("id", chapterId);
+          source_topic_id: topicId,
+        });
       } else {
-        // Try by subject + slug
-        const { data: existingCh } = await supabase
-          .from("chapters")
-          .select("id")
-          .eq("subject_id", subjectId)
-          .eq("slug", chapterSlug)
-          .maybeSingle();
-        if (existingCh) {
-          chapterId = existingCh.id;
-          await supabase.from("chapters").update({
-            source_topic_id: topicId,
-            title: topic.topicName,
-            sort_order: tIdx,
-          }).eq("id", chapterId);
-        } else {
-          const { data: newCh, error: chErr } = await supabase.from("chapters").insert({
-            subject_id: subjectId,
-            slug: chapterSlug,
-            title: topic.topicName,
-            sort_order: tIdx,
-            source_topic_id: topicId,
-          }).select("id").single();
-          if (chErr) throw new Error(`Failed to create chapter: ${chErr.message}`);
-          chapterId = newCh.id;
-        }
+        newChapterSlugs.add(chapterSlug);
+        chapterUpserts.push({
+          subject_id: subjectId,
+          slug: chapterSlug,
+          title: topic.topicName,
+          sort_order: tIdx,
+          source_topic_id: topicId,
+        });
       }
+    }
 
-      // Upsert lectures (classes) within this chapter
+    // 6. Bulk upsert chapters (insert new ones first)
+    const newChapters = chapterUpserts.filter(c => !c.id);
+    const existingChaptersToUpdate = chapterUpserts.filter(c => c.id);
+
+    if (newChapters.length > 0) {
+      const { data: inserted, error: chErr } = await supabase
+        .from("chapters")
+        .insert(newChapters)
+        .select("id, source_topic_id");
+      if (chErr) throw new Error(`Failed to insert chapters: ${chErr.message}`);
+      for (const ch of inserted) {
+        chapterMap.set(ch.source_topic_id, ch.id);
+      }
+    }
+
+    if (existingChaptersToUpdate.length > 0) {
+      const { error: chErr } = await supabase
+        .from("chapters")
+        .upsert(existingChaptersToUpdate, { onConflict: "id" });
+      if (chErr) console.warn(`Chapter update warning: ${chErr.message}`);
+    }
+
+    // 7. Prepare lecture upserts in bulk
+    const lectureInserts: any[] = [];
+    const lectureUpdates: any[] = [];
+    let totalClasses = 0;
+
+    for (let tIdx = 0; tIdx < topics.length; tIdx++) {
+      const topic = topics[tIdx];
+      const chapterId = chapterMap.get(topic.topicId);
+      if (!chapterId) continue;
+
       for (let cIdx = 0; cIdx < topic.classes.length; cIdx++) {
         const cls = topic.classes[cIdx];
         totalClasses++;
 
-        // Pick best video URL: prefer 720p mp4, fallback to any mp4, then HLS class_link
-        let videoUrl = cls.class_link || null;
+        // Collect ALL video URLs (mp4 recordings + HLS class_link)
+        const allVideoUrls: string[] = [];
         if (cls.mp4Recordings && cls.mp4Recordings.length > 0) {
           const sorted = [...cls.mp4Recordings].sort((a, b) => {
             const qa = parseInt(a.quality) || 0;
             const qb = parseInt(b.quality) || 0;
             return qb - qa;
           });
-          videoUrl = sorted[0].url;
+          for (const rec of sorted) {
+            if (rec.url) allVideoUrls.push(rec.url);
+          }
         }
-        if (!videoUrl && cls.class_link) {
-          videoUrl = cls.class_link;
+        if (cls.class_link && !allVideoUrls.includes(cls.class_link)) {
+          allVideoUrls.push(cls.class_link);
         }
 
-        // Pick PDF URL if available
-        let pdfUrl: string | null = null;
-        if (cls.classPdf && cls.classPdf.length > 0 && cls.classPdf[0].url) {
-          pdfUrl = cls.classPdf[0].url;
+        const videoUrl = allVideoUrls[0] || null;
+
+        // Collect ALL PDF URLs
+        const allPdfUrls: string[] = [];
+        if (cls.classPdf && cls.classPdf.length > 0) {
+          for (const pdf of cls.classPdf) {
+            if (pdf.url) allPdfUrls.push(pdf.url);
+          }
         }
+        const primaryPdfUrl = allPdfUrls[0] || null;
 
         const lectureSlug = slugify(cls.title) + "-" + cls.classId.slice(-6);
 
-        // Check if lecture exists by source_class_id
-        const { data: existingLec } = await supabase
-          .from("lectures")
-          .select("id, source_added_at")
-          .eq("source_class_id", cls.classId)
-          .maybeSingle();
+        const lectureData = {
+          title: cls.title,
+          description: cls.description || null,
+          video_url: videoUrl,
+          pdf_url: primaryPdfUrl,
+          pdf_urls: allPdfUrls.length > 0 ? allPdfUrls : null,
+          source_video_urls: allVideoUrls.length > 0 ? allVideoUrls : null,
+          is_live: cls.isLive || false,
+          duration_seconds: Math.round(cls.duration || 0),
+          teacher_name: cls.teacherName || null,
+          sort_order: cIdx,
+          source_added_at: cls.addedAt,
+          updated_at: new Date().toISOString(),
+        };
 
-        if (existingLec) {
-          // Update existing lecture
-          await supabase.from("lectures").update({
-            title: cls.title,
-            description: cls.description || null,
-            video_url: videoUrl,
-            pdf_url: pdfUrl,
-            duration_seconds: Math.round(cls.duration || 0),
-            teacher_name: cls.teacherName || null,
-            sort_order: cIdx,
-            source_added_at: cls.addedAt,
-            updated_at: new Date().toISOString(),
-          }).eq("id", existingLec.id);
+        if (lectureMap.has(cls.classId)) {
+          lectureUpdates.push({
+            id: lectureMap.get(cls.classId),
+            ...lectureData,
+          });
         } else {
-          // Insert new lecture
-          const { error: lecErr } = await supabase.from("lectures").insert({
+          lectureInserts.push({
             chapter_id: chapterId,
             slug: lectureSlug,
-            title: cls.title,
-            description: cls.description || null,
-            video_url: videoUrl,
-            pdf_url: pdfUrl,
-            duration_seconds: Math.round(cls.duration || 0),
-            teacher_name: cls.teacherName || null,
+            ...lectureData,
             is_new: true,
             is_pinned: cIdx === 0,
-            sort_order: cIdx,
-            source_class_id: cls.classId,
-            source_added_at: cls.addedAt,
+            watch_count: 0,
           });
-          if (lecErr) {
-            console.warn(`Failed to insert lecture "${cls.title}": ${lecErr.message}`);
-          } else {
-            newClasses++;
-          }
+        }
+      }
+    }
+
+    // 8. Bulk insert new lectures
+    let newClasses = 0;
+    if (lectureInserts.length > 0) {
+      // Insert in batches of 50 to avoid payload limits
+      for (let i = 0; i < lectureInserts.length; i += 50) {
+        const batch = lectureInserts.slice(i, i + 50);
+        const { error: insErr } = await supabase.from("lectures").insert(batch);
+        if (insErr) {
+          console.warn(`Lecture insert batch ${i} warning: ${insErr.message}`);
+        } else {
+          newClasses += batch.length;
+        }
+      }
+    }
+
+    // 9. Bulk update existing lectures in batches
+    let updatedClasses = 0;
+    if (lectureUpdates.length > 0) {
+      for (let i = 0; i < lectureUpdates.length; i += 50) {
+        const batch = lectureUpdates.slice(i, i + 50);
+        const { error: updErr } = await supabase.from("lectures").upsert(batch, { onConflict: "id" });
+        if (updErr) {
+          console.warn(`Lecture update batch ${i} warning: ${updErr.message}`);
+        } else {
+          updatedClasses += batch.length;
         }
       }
     }
@@ -256,10 +258,11 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         success: true,
-        subject: courseData.data.title,
+        subject: course.title,
         topics: topics.length,
         totalClasses,
         newClasses,
+        updatedClasses,
         syncedAt: new Date().toISOString(),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },

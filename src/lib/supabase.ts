@@ -40,6 +40,9 @@ export interface Lecture {
   description: string | null;
   video_url: string | null;
   pdf_url: string | null;
+  pdf_urls: string[] | null;
+  source_video_urls: string[] | null;
+  is_live: boolean;
   thumbnail_url: string | null;
   duration_seconds: number;
   teacher_name: string | null;
