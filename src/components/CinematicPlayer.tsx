@@ -19,11 +19,10 @@ const LS_MUTED = 'shivansh_playback_muted';
 
 type MenuView = 'main' | 'speed' | 'quality' | null;
 
-export function CinematicPlayer({ lecture, onEnded, onNext, nextLabel }: {
+export function CinematicPlayer({ lecture, onEnded, onNext }: {
   lecture: Lecture;
   onEnded?: () => void;
   onNext?: () => void;
-  nextLabel?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -453,14 +452,6 @@ export function CinematicPlayer({ lecture, onEnded, onNext, nextLabel }: {
           </motion.button>
         )}
 
-        {/* Auto-next banner */}
-        {autoNext && onEnded && nextLabel && (
-          <motion.div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur-md rounded-xl px-3 py-2 text-xs text-white/80 flex items-center gap-2"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
-            <span className="w-2 h-2 rounded-full bg-primary-400 animate-pulse" />
-            Auto-next: {nextLabel}
-          </motion.div>
-        )}
       </div>
     </div>
   );

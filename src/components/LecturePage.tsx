@@ -47,7 +47,6 @@ export function LecturePage({ subjectSlug, chapterSlug, lectureId }: { subjectSl
             lecture={lecture}
             onEnded={() => { markCompleted(lectureId); setCompleted(true); }}
             onNext={nextLecture ? () => navigate({ name: 'lecture', subjectSlug, chapterSlug, lectureId: nextLecture.id }) : undefined}
-            nextLabel={nextLecture?.title}
           />
 
           <div className="mt-4">

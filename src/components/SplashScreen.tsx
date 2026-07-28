@@ -1,46 +1,72 @@
 import { motion, AnimatePresence } from 'framer-motion';
 
+const EASE = [0.16, 1, 0.3, 1] as const;
+
 export function SplashScreen({ visible }: { visible: boolean }) {
   return (
     <AnimatePresence>
       {visible && (
         <motion.div
-          className="fixed inset-0 z-[100] flex flex-col items-center justify-center overflow-hidden"
-          style={{ background: 'radial-gradient(ellipse at center, #f0fdfa 0%, #ffffff 50%, #f0fdfa 100%)' }}
+          className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-black"
           initial={{ opacity: 1 }}
-          exit={{ opacity: 0, scale: 1.02, filter: 'blur(8px)' }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5, ease: EASE }}
         >
-          {/* Ambient glow orbs */}
+          {/* Expanding light rays from center */}
           <motion.div
-            className="absolute w-72 h-72 rounded-full blur-3xl"
-            style={{ background: 'radial-gradient(circle, rgba(20,184,166,0.15), transparent 70%)', top: '15%', left: '20%' }}
-            animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.6, 0.4] }}
-            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-          />
+            className="absolute inset-0 flex items-center justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 1, 0.6, 0] }}
+            transition={{ duration: 2.4, times: [0, 0.3, 0.7, 1], ease: EASE }}
+          >
+            <motion.div
+              className="absolute rounded-full"
+              style={{ background: 'radial-gradient(circle, rgba(20,184,166,0.35), transparent 60%)' }}
+              initial={{ width: 0, height: 0 }}
+              animate={{ width: 900, height: 900 }}
+              transition={{ duration: 2.4, ease: EASE }}
+            />
+          </motion.div>
+
+          {/* Rotating conic beam */}
           <motion.div
-            className="absolute w-64 h-64 rounded-full blur-3xl"
-            style={{ background: 'radial-gradient(circle, rgba(8,145,178,0.12), transparent 70%)', bottom: '20%', right: '25%' }}
-            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-            transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+            className="absolute w-[200vmax] h-[200vmax]"
+            style={{
+              background: 'conic-gradient(from 0deg, transparent 0deg, rgba(20,184,166,0.12) 8deg, transparent 16deg, transparent 40deg, rgba(8,145,178,0.10) 48deg, transparent 56deg, transparent 90deg, rgba(20,184,166,0.10) 98deg, transparent 106deg, transparent 360deg)',
+            }}
+            initial={{ rotate: 0, opacity: 0, scale: 0.3 }}
+            animate={{ rotate: 90, opacity: [0, 0.8, 0.4], scale: 1 }}
+            transition={{ duration: 2.6, ease: EASE, opacity: { duration: 2.6, times: [0, 0.4, 1] } }}
           />
 
-          {/* Logo */}
-          <motion.div
-            initial={{ scale: 0.6, opacity: 0, rotateZ: -8 }}
-            animate={{ scale: 1, opacity: 1, rotateZ: 0 }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="relative z-10"
-          >
-            <div className="relative">
-              {/* Glow ring */}
+          {/* Vignette */}
+          <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.85) 100%)' }} />
+
+          {/* Logo block */}
+          <div className="relative z-10 flex flex-col items-center">
+            {/* Logo with dramatic zoom + light sweep */}
+            <motion.div
+              className="relative"
+              initial={{ scale: 3.5, opacity: 0, filter: 'blur(20px)' }}
+              animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
+              transition={{ duration: 1.4, ease: EASE, delay: 0.2 }}
+            >
+              {/* Glow halo */}
               <motion.div
-                className="absolute inset-0 rounded-2xl blur-xl"
+                className="absolute inset-0 rounded-3xl blur-2xl"
                 style={{ background: 'linear-gradient(135deg, #14b8a6, #0891b2)' }}
-                animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.1, 1] }}
-                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: [0, 0.7, 0.4], scale: [0.5, 1.3, 1] }}
+                transition={{ duration: 2.6, ease: EASE, delay: 0.2 }}
               />
-              <svg width="72" height="72" viewBox="0 0 48 48" fill="none" className="relative">
+
+              <motion.svg
+                width="88" height="88" viewBox="0 0 48 48" fill="none"
+                className="relative"
+                initial={{ rotate: -12 }}
+                animate={{ rotate: 0 }}
+                transition={{ duration: 1.2, ease: EASE, delay: 0.3 }}
+              >
                 <rect width="48" height="48" rx="14" fill="url(#splash_grad)" />
                 <motion.path
                   d="M24 8L14 40h6.75l1.35-6.75h3.8L27.25 40H34L24 8zm-3.45 21l3.45-9 3.45 9H20.55z"
@@ -48,7 +74,7 @@ export function SplashScreen({ visible }: { visible: boolean }) {
                   fillOpacity="0.97"
                   initial={{ pathLength: 0, opacity: 0 }}
                   animate={{ pathLength: 1, opacity: 1 }}
-                  transition={{ duration: 1.2, delay: 0.3, ease: 'easeInOut' }}
+                  transition={{ duration: 1.1, delay: 0.6, ease: 'easeInOut' }}
                 />
                 <circle cx="24" cy="12" r="2.5" fill="#FBBF24" />
                 <defs>
@@ -58,43 +84,74 @@ export function SplashScreen({ visible }: { visible: boolean }) {
                     <stop offset="1" stopColor="#0E7490" />
                   </linearGradient>
                 </defs>
-              </svg>
-            </div>
-          </motion.div>
+              </motion.svg>
 
-          {/* Brand name */}
-          <motion.div
-            className="relative z-10 mt-6 text-center"
-            initial={{ opacity: 0, y: 14, filter: 'blur(4px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            transition={{ delay: 0.5, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <h1 className="font-bold text-2xl tracking-tight text-gray-900">Shivansh</h1>
-            <motion.p
-              className="text-sm font-medium text-teal-600 mt-1 tracking-wide"
+              {/* Light sweep across logo */}
+              <motion.div
+                className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 1, 0] }}
+                transition={{ duration: 0.8, delay: 1.2, ease: EASE }}
+              >
+                <motion.div
+                  className="absolute -inset-y-4 w-24"
+                  style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent)' }}
+                  initial={{ x: -120, skewX: -15 }}
+                  animate={{ x: 160 }}
+                  transition={{ duration: 0.7, delay: 1.2, ease: EASE }}
+                />
+              </motion.div>
+            </motion.div>
+
+            {/* Brand name — dramatic reveal */}
+            <motion.div
+              className="mt-7 text-center overflow-hidden"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.8, duration: 0.5 }}
+              transition={{ delay: 1.1, duration: 0.4 }}
             >
-              Income Tax Officer
-            </motion.p>
-          </motion.div>
+              <div className="overflow-hidden">
+                <motion.h1
+                  className="font-bold text-3xl tracking-[0.2em] text-white"
+                  initial={{ y: '100%' }}
+                  animate={{ y: '0%' }}
+                  transition={{ delay: 1.1, duration: 0.7, ease: EASE }}
+                >
+                  SHIVANSH
+                </motion.h1>
+              </div>
+              <motion.div
+                className="h-px w-0 bg-gradient-to-r from-transparent via-teal-400 to-transparent mx-auto mt-3"
+                initial={{ width: 0 }}
+                animate={{ width: 180 }}
+                transition={{ delay: 1.5, duration: 0.6, ease: EASE }}
+              />
+              <motion.p
+                className="text-xs font-medium text-teal-300 mt-3 tracking-[0.35em] uppercase"
+                initial={{ opacity: 0, letterSpacing: '0.1em' }}
+                animate={{ opacity: 1, letterSpacing: '0.35em' }}
+                transition={{ delay: 1.6, duration: 0.6, ease: EASE }}
+              >
+                Income Tax Officer
+              </motion.p>
+            </motion.div>
+          </div>
 
-          {/* Progress bar */}
+          {/* Expanding panel wipe-out (Marvel-style) */}
           <motion.div
-            className="relative z-10 mt-8 w-36 h-1 rounded-full bg-gray-100 overflow-hidden"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-          >
-            <motion.div
-              className="h-full rounded-full"
-              style={{ background: 'linear-gradient(90deg, #14b8a6, #0891b2)' }}
-              initial={{ width: '0%' }}
-              animate={{ width: '100%' }}
-              transition={{ duration: 1.8, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            />
-          </motion.div>
+            className="absolute inset-0 bg-black origin-bottom z-20"
+            initial={{ scaleY: 0 }}
+            exit={{ scaleY: 1 }}
+            transition={{ duration: 0.45, ease: EASE }}
+            style={{ transformOrigin: 'bottom' }}
+          />
+          <motion.div
+            className="absolute inset-0 bg-black origin-top z-20"
+            initial={{ scaleY: 1 }}
+            animate={{ scaleY: 0 }}
+            transition={{ duration: 0.6, ease: EASE, delay: 0 }}
+            style={{ transformOrigin: 'top' }}
+          />
         </motion.div>
       )}
     </AnimatePresence>
