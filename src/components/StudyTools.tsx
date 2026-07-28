@@ -560,7 +560,7 @@ export function StudyPlannerPanel() {
 
   const generate = async () => {
     setLoading(true); setPlan(null); setStreamingText(''); setError(null);
-    const context = `Subjects: ${subjects || 'All subjects (Reasoning, English, Math, GK)'}. Available study time: ${hours || '4-6 hours per day'}. Exam goal: ${goal || 'SSC CGL/CHSL preparation'}.`;
+    const context = `Subjects: ${subjects || 'All subjects (Maths, Reasoning, English, GK, Steno)'}. Available study time: ${hours || '4-6 hours per day'}. Exam goal: ${goal || 'Competitive exam preparation'}.`;
     let accumulated = '';
     const { error: streamErr } = await streamAi(
       { action: 'plan', context },
@@ -580,7 +580,7 @@ export function StudyPlannerPanel() {
       <div className="space-y-3 mb-4">
         <input className="input-field w-full" placeholder="Subjects to focus on (optional)" value={subjects} onChange={(e) => setSubjects(e.target.value)} />
         <input className="input-field w-full" placeholder="Hours available per day (e.g. 5)" value={hours} onChange={(e) => setHours(e.target.value)} />
-        <input className="input-field w-full" placeholder="Exam goal (e.g. SSC CGL, Stenographer)" value={goal} onChange={(e) => setGoal(e.target.value)} />
+        <input className="input-field w-full" placeholder="Exam goal (e.g. CGL, CHSL, Stenographer)" value={goal} onChange={(e) => setGoal(e.target.value)} />
       </div>
       <button onClick={generate} disabled={loading} className="btn-primary w-full py-3 text-sm mb-4">
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calendar className="w-4 h-4" />} Create My Study Plan

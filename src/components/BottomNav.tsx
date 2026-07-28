@@ -4,7 +4,7 @@ import { useRouter, type Route } from '../lib/router';
 
 const TABS: { id: string; label: string; icon: typeof Home; route: Route }[] = [
   { id: 'home',            label: 'Home',    icon: Home,          route: { name: 'home' } },
-  { id: 'courses',         label: 'Courses', icon: BookOpen,     route: { name: 'courses' } },
+  { id: 'courses',         label: 'Batches', icon: BookOpen,     route: { name: 'courses' } },
   { id: 'test-series',     label: 'Tests',   icon: FileText,     route: { name: 'test-series' } },
   { id: 'ai-assistant', label: 'AI',      icon: Sparkles,    route: { name: 'ai-assistant' } },
   { id: 'profile',         label: 'Profile', icon: User,         route: { name: 'profile' } },

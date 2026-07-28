@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { ChevronRight, BookOpen, Clock, Flame, Target, TrendingUp, PlayCircle, BarChart3, Award, Radio, CheckCircle, GraduationCap } from 'lucide-react';
 import { useRouter } from '../lib/router';
-import { useSubjects, useAllChapters, useAllLectures, formatDuration } from '../lib/hooks';
+import { useSubjects, useAllChapters, useAllLectures, useTeachers, formatDuration } from '../lib/hooks';
 import { getStudyStreak, getTodayStudySeconds, getDailyGoal, getWeeklyStudySeconds, getTotalStudySeconds, getCourseProgress, getContinueWatching, getLastOpenedLectures, getProgress } from '../lib/storage';
 import * as LucideIcons from 'lucide-react';
 
@@ -57,6 +57,7 @@ export function HomePage() {
   const { subjects, loading: subjectsLoading } = useSubjects();
   const { chapters, loading: chaptersLoading } = useAllChapters();
   const { lectures } = useAllLectures();
+  const { teachers } = useTeachers();
 
   if (subjectsLoading || chaptersLoading) return <HomeSkeleton />;
 
@@ -273,8 +274,8 @@ export function HomePage() {
 
       {/* Subjects */}
       <motion.div className="mb-8" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.4 }}>
-        <h2 className="font-bold text-lg text-gray-900 mb-1">Select Chapter</h2>
-        <p className="text-sm text-gray-500 mb-4">Choose a subject to start learning</p>
+        <h2 className="font-bold text-lg text-gray-900 mb-1">Our Batches</h2>
+        <p className="text-sm text-gray-500 mb-4">Choose a batch to start learning</p>
       </motion.div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -303,6 +304,14 @@ export function HomePage() {
                 <Icon className="w-7 h-7" style={{ color: subject.color || '#14b8a6' }} />
               </div>
               <h3 className="relative font-bold text-base text-gray-900 mb-1 group-hover:text-primary-600 transition-colors">{subject.title}</h3>
+              {(() => {
+                const teacher = teachers.find((t) => t.id === subject.teacher_id);
+                return teacher ? (
+                  <p className="relative text-[11px] text-primary-500 font-medium mb-1 flex items-center gap-1">
+                    <GraduationCap className="w-2.5 h-2.5" /> {teacher.name}
+                  </p>
+                ) : null;
+              })()}
               <div className="relative flex items-center gap-2 text-xs text-gray-400">
                 <span>{subjectChapters.length} chapters</span>
                 {subjectProgress > 0 && <><span>·</span><span className="text-primary-500 font-medium">{subjectProgress}%</span></>}

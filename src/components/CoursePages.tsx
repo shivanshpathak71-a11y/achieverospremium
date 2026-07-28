@@ -3,12 +3,12 @@ import { useState } from 'react';
 import {
   ChevronLeft, ChevronRight, Play, Clock, FileText, Pin, BookOpen,
   CheckCircle, Calendar, Radio, Clock3, BadgeIndianRupee, Users,
-  ShieldCheck, ChevronDown, Award, Youtube, Sparkles, Layers,
+  ShieldCheck, ChevronDown, Award, Youtube, Layers,
   GraduationCap, ArrowRight, Star, TrendingUp, Gift,
   Video, Info, Download, StickyNote, CalendarClock, FolderOpen
 } from 'lucide-react';
 import { useRouter } from '../lib/router';
-import { useSubjects, useSubject, useChaptersBySubjectSlug, useLectures, useAllLectures, useAllChapters, useCourseNotes, useFoldersBySubject, useTopicsByChapter, formatDuration } from '../lib/hooks';
+import { useSubjects, useSubject, useChaptersBySubjectSlug, useLectures, useAllLectures, useAllChapters, useCourseNotes, useFoldersBySubject, useTopicsByChapter, useTeachers, formatDuration } from '../lib/hooks';
 import { getProgress, getCourseProgress, getAllProgress } from '../lib/storage';
 import { Breadcrumbs } from './Breadcrumbs';
 import * as LucideIcons from 'lucide-react';
@@ -87,6 +87,7 @@ export function CourseListPage() {
   const { subjects, loading } = useSubjects();
   const { chapters } = useAllChapters();
   const { lectures } = useAllLectures();
+  const { teachers } = useTeachers();
 
   if (loading) return (
     <div className="pt-20 pb-24 max-w-7xl mx-auto px-4">
@@ -99,12 +100,9 @@ export function CourseListPage() {
   return (
     <div className="pt-20 pb-24 lg:pb-16 max-w-7xl mx-auto px-4">
       <motion.div className="mb-8 mt-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}>
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 border border-primary-100 mb-3">
-          <Sparkles className="w-3.5 h-3.5 text-primary-500" />
-          <span className="text-xs font-semibold text-primary-600">All Courses</span>
-        </div>
-        <h1 className="font-extrabold text-3xl sm:text-4xl text-gray-900 tracking-tight">Explore Courses</h1>
-        <p className="text-sm text-gray-500 mt-1">Browse all subjects and chapters — find what fits your prep.</p>
+        
+        <h1 className="font-extrabold text-3xl sm:text-4xl text-gray-900 tracking-tight">Our Batches</h1>
+        <p className="text-sm text-gray-500 mt-1">Browse all batches and start your preparation journey.</p>
       </motion.div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -143,6 +141,14 @@ export function CourseListPage() {
                 )}
               </div>
               <h3 className="relative font-bold text-lg text-gray-900 group-hover:text-primary-600 transition-colors mb-1">{s.title}</h3>
+              {(() => {
+                const teacher = teachers.find((t) => t.id === s.teacher_id);
+                return teacher ? (
+                  <p className="relative text-xs text-primary-500 font-medium mb-1 flex items-center gap-1">
+                    <GraduationCap className="w-3 h-3" /> {teacher.name}
+                  </p>
+                ) : null;
+              })()}
               {s.short_description && <p className="relative text-xs text-gray-500 line-clamp-2 mb-3">{s.short_description}</p>}
               {!s.short_description && s.description && <p className="relative text-xs text-gray-400 line-clamp-2 mb-4">{s.description}</p>}
               <div className="relative flex items-center gap-4 text-xs text-gray-400 mb-4">
@@ -178,7 +184,7 @@ export function CourseDetailPage({ slug }: { slug: string }) {
   const { folders, loading: foldersLoading } = useFoldersBySubject(subject?.id);
   const { lectures } = useAllLectures();
   const { notes, loading: notesLoading } = useCourseNotes(subject?.id);
-  const [activeMainTab, setActiveMainTab] = useState<'videos' | 'notes' | 'live'>('videos');
+  const [activeMainTab, setActiveMainTab] = useState<'detail' | 'videos' | 'notes' | 'live'>('detail');
   const [activeDetailTab, setActiveDetailTab] = useState<'timetable' | 'faculty' | 'faqs' | 'highlights'>('timetable');
 
   if (subLoading || chLoading || foldersLoading) return (
@@ -227,7 +233,7 @@ export function CourseDetailPage({ slug }: { slug: string }) {
         <div className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center group-hover:border-primary-200 group-hover:bg-primary-50 transition-all">
           <ChevronLeft className="w-4 h-4" />
         </div>
-        <span>All Courses</span>
+        <span>All Batches</span>
       </motion.button>
 
       {/* ─── Hero Section ─── */}
@@ -403,9 +409,10 @@ export function CourseDetailPage({ slug }: { slug: string }) {
       {/* ═══ MAIN TAB BAR ═══ */}
       <div className="flex gap-2 mb-6 bg-white border border-gray-200 rounded-2xl p-1.5">
         {[
-          { id: 'videos' as const, label: 'Videos', icon: Video },
-          { id: 'notes' as const, label: 'Notes', icon: StickyNote },
-          { id: 'live' as const, label: 'Live & Timetable', icon: CalendarClock },
+          { id: 'detail' as const, label: 'Batch Detail', icon: Info },
+          { id: 'videos' as const, label: 'Batch Content', icon: Video },
+          { id: 'notes' as const, label: 'Notes & PDFs', icon: StickyNote },
+          { id: 'live' as const, label: 'Live Classes', icon: CalendarClock },
         ].map((tab) => {
           const Icon = tab.icon;
           return (
@@ -419,6 +426,135 @@ export function CourseDetailPage({ slug }: { slug: string }) {
           );
         })}
       </div>
+
+      {/* ═══ BATCH DETAIL TAB ═══ */}
+      {activeMainTab === 'detail' && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+          {/* Batch Description */}
+          {subject.description && (
+            <div>
+              <SectionHeading icon={Info} title="Batch Detail" accent="primary" />
+              <div className="bg-white border border-gray-200 rounded-3xl p-5">
+                <p className="text-sm text-gray-600 leading-relaxed">{subject.description}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Course Highlights */}
+          {hasHighlights && (
+            <div>
+              <SectionHeading icon={Award} title="Batch Highlights" accent="amber" />
+              <div className="bg-white border border-gray-200 rounded-3xl p-5 space-y-3">
+                {subject.course_highlights!.map((h, i) => (
+                  <motion.div key={i} className="flex items-start gap-3"
+                    initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05, duration: 0.25 }}>
+                    <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
+                      <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
+                    </div>
+                    <p className="text-sm text-gray-700 leading-relaxed pt-1">{h}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Faculty Details */}
+          {hasFaculty && (
+            <div>
+              <SectionHeading icon={GraduationCap} title="Faculty Details" accent="blue" />
+              <div className="bg-white border border-gray-200 rounded-3xl p-5">
+                <div className="flex flex-col sm:flex-row items-start gap-4">
+                  {subject.faculty_details!.imageUrl && (
+                    <div className="relative flex-shrink-0">
+                      <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-white shadow-soft">
+                        <img src={subject.faculty_details!.imageUrl} alt={subject.faculty_details!.name} className="w-full h-full object-cover" />
+                      </div>
+                      {subject.faculty_details!.experience && (
+                        <div className="absolute -bottom-2 -right-2 px-2 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-bold whitespace-nowrap shadow-soft">
+                          {subject.faculty_details!.experience}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-bold text-base text-gray-900">{subject.faculty_details!.name}</h3>
+                      {subject.faculty_details!.designation && (
+                        <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-semibold">{subject.faculty_details!.designation}</span>
+                      )}
+                    </div>
+                    {subject.faculty_details!.reach && (
+                      <p className="text-xs text-primary-500 font-medium mb-2 flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5" /> {subject.faculty_details!.reach}
+                      </p>
+                    )}
+                    {subject.faculty_details!.description && (
+                      <p className="text-sm text-gray-600 leading-relaxed mb-3">{subject.faculty_details!.description}</p>
+                    )}
+                    {subject.faculty_details!.socialLinks && subject.faculty_details!.socialLinks.length > 0 && (
+                      <div className="flex gap-2 flex-wrap">
+                        {subject.faculty_details!.socialLinks.map((link, i) => (
+                          <a key={i} href={link} target="_blank" rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 text-xs font-semibold hover:bg-rose-100 transition-colors">
+                            <Youtube className="w-3.5 h-3.5" /> Watch on YouTube
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Demo / Free Videos */}
+          {(() => {
+            const freeLectures = subjectLectures.filter((l) => l.is_free).slice(0, 6);
+            if (freeLectures.length === 0) return null;
+            return (
+              <div>
+                <SectionHeading icon={Play} title="Demo Videos" accent="green" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {freeLectures.map((l, i) => {
+                    const ch = chapters.find((c) => c.id === l.chapter_id);
+                    return (
+                      <motion.button key={l.id}
+                        onClick={() => navigate({ name: 'lecture', subjectSlug: subject.slug, chapterSlug: ch?.slug || '', lectureId: l.id })}
+                        className="group bg-white border border-gray-200 rounded-2xl p-4 text-left hover:shadow-premium hover:border-primary-200 transition-all duration-300"
+                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05, duration: 0.3 }}
+                        whileHover={{ y: -2 }}>
+                        <div className="relative w-full h-32 rounded-xl overflow-hidden mb-3">
+                          <img src={l.thumbnail_url || FALLBACK_THUMB} alt="" loading="lazy" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/20 flex items-center justify-center group-hover:bg-black/30 transition-colors">
+                            <Play className="w-8 h-8 text-white fill-white" />
+                          </div>
+                          <span className="absolute top-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-success-500 text-white text-[10px] font-bold">
+                            <Gift className="w-2.5 h-2.5" /> FREE
+                          </span>
+                        </div>
+                        <p className="font-semibold text-sm text-gray-900 line-clamp-2">{l.title}</p>
+                        {ch && <p className="text-[10px] text-gray-400 mt-1">{ch.title}</p>}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* FAQs */}
+          {hasFaqs && (
+            <div>
+              <SectionHeading icon={ChevronDown} title="FAQs" accent="primary" />
+              <div className="space-y-3">
+                {subject.faqs!.map((faq, i) => (
+                  <FAQItem key={i} question={faq.question} answer={faq.answer} index={i} />
+                ))}
+              </div>
+            </div>
+          )}
+        </motion.div>
+      )}
 
       {/* ═══ VIDEOS TAB (two-column layout) ═══ */}
       {activeMainTab === 'videos' && (
@@ -665,7 +801,7 @@ export function CourseDetailPage({ slug }: { slug: string }) {
             >
               <div className="flex items-center gap-2 mb-2">
                 <Info className="w-4 h-4 text-gray-400" />
-                <h3 className="font-bold text-sm text-gray-900">Course Info</h3>
+                <h3 className="font-bold text-sm text-gray-900">Batch Info</h3>
               </div>
               {subject.description && <p className="text-xs text-gray-500 leading-relaxed">{subject.description}</p>}
               <div className="grid grid-cols-2 gap-2 pt-2">
@@ -691,7 +827,7 @@ export function CourseDetailPage({ slug }: { slug: string }) {
       {/* ═══ NOTES TAB ═══ */}
       {activeMainTab === 'notes' && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-          <SectionHeading icon={StickyNote} title="Course Notes & PDFs" accent="primary" />
+          <SectionHeading icon={StickyNote} title="Notes & PDFs" accent="primary" />
           {notesLoading ? (
             <div className="space-y-3">{[1, 2].map((i) => <div key={i} className="h-16 skeleton rounded-2xl" />)}</div>
           ) : notes.length > 0 ? (
