@@ -2,9 +2,13 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 
 export type Route =
   | { name: 'home' }
+  | { name: 'teachers' }
+  | { name: 'teacher'; teacherSlug: string }
   | { name: 'courses' }
   | { name: 'course'; slug: string }
+  | { name: 'folder'; subjectSlug: string; folderSlug: string }
   | { name: 'chapter'; subjectSlug: string; chapterSlug: string }
+  | { name: 'topic'; subjectSlug: string; chapterSlug: string; topicSlug: string }
   | { name: 'lecture'; subjectSlug: string; chapterSlug: string; lectureId: string }
   | { name: 'search' }
   | { name: 'profile' }

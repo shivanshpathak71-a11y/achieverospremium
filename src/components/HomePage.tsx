@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion';
-import { ChevronRight, BookOpen, Clock, Flame, Target, TrendingUp, PlayCircle, BarChart3, Award, Radio } from 'lucide-react';
+import { ChevronRight, BookOpen, Clock, Flame, Target, TrendingUp, PlayCircle, BarChart3, Award, Radio, CheckCircle, GraduationCap } from 'lucide-react';
 import { useRouter } from '../lib/router';
 import { useSubjects, useAllChapters, useAllLectures, formatDuration } from '../lib/hooks';
-import { getStudyStreak, getTodayStudySeconds, getDailyGoal, getWeeklyStudySeconds, getTotalStudySeconds, getCourseProgress } from '../lib/storage';
+import { getStudyStreak, getTodayStudySeconds, getDailyGoal, getWeeklyStudySeconds, getTotalStudySeconds, getCourseProgress, getContinueWatching, getLastOpenedLectures, getProgress } from '../lib/storage';
 import * as LucideIcons from 'lucide-react';
 
 const FALLBACK_THUMB = 'https://images.pexels.com/photos/256541/pexels-photo-256541.jpeg?auto=compress&cs=tinysrgb&w=400';
@@ -68,6 +68,8 @@ export function HomePage() {
   const totalSec = getTotalStudySeconds();
   const totalLectures = lectures.length;
   const completedLectures = lectures.filter((l) => getCourseProgress([l.id]) === 100).length;
+  const continueWatching = getContinueWatching().slice(0, 10);
+  const recentlyViewed = getLastOpenedLectures().slice(0, 10);
   const overallPct = totalLectures > 0 ? Math.round((completedLectures / totalLectures) * 100) : 0;
 
   const liveLectures = lectures.filter((l) => l.is_live).slice(0, 6);
@@ -185,6 +187,88 @@ export function HomePage() {
             <motion.div className="h-full rounded-full bg-gradient-to-r from-primary-500 to-accent-400" initial={{ width: 0 }} animate={{ width: `${goalPct}%` }} transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }} />
           </div>
         </div>
+      </motion.div>
+
+      {/* Continue Watching */}
+      {continueWatching.length > 0 && (
+        <motion.div className="mb-8" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35, duration: 0.4 }}>
+          <h2 className="font-bold text-lg text-gray-900 mb-3 flex items-center gap-2">
+            <PlayCircle className="w-5 h-5 text-primary-500" /> Continue Watching
+          </h2>
+          <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4">
+            {continueWatching.map(({ lectureId }) => {
+              const lec = lectures.find((l) => l.id === lectureId);
+              if (!lec) return null;
+              const ch = lec.chapter;
+              const prog = getProgress(lectureId);
+              const pct = prog && lec.duration_seconds > 0 ? Math.min(100, (prog.position / lec.duration_seconds) * 100) : 0;
+              return (
+                <button key={lectureId} onClick={() => navigate({ name: 'lecture', subjectSlug: ch?.subject?.slug || '', chapterSlug: ch?.slug || '', lectureId })}
+                  className="group flex-shrink-0 w-56 bg-white border border-gray-200 rounded-2xl p-3 text-left hover:shadow-premium hover:border-primary-200 transition-all duration-300">
+                  <div className="relative w-full h-28 rounded-xl overflow-hidden mb-2">
+                    <img src={lec.thumbnail_url || FALLBACK_THUMB} alt="" loading="lazy" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center group-hover:bg-black/30 transition-colors">
+                      <PlayCircle className="w-8 h-8 text-white" />
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/30">
+                      <div className="h-full bg-primary-500" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                  <p className="text-xs font-semibold text-gray-900 line-clamp-2">{lec.title}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">{ch?.title}</p>
+                </button>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Recently Viewed */}
+      {recentlyViewed.length > 0 && (
+        <motion.div className="mb-8" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.4 }}>
+          <h2 className="font-bold text-lg text-gray-900 mb-3 flex items-center gap-2">
+            <Clock className="w-5 h-5 text-gray-400" /> Recently Viewed
+          </h2>
+          <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4">
+            {recentlyViewed.map(({ lectureId }) => {
+              const lec = lectures.find((l) => l.id === lectureId);
+              if (!lec) return null;
+              const ch = lec.chapter;
+              const prog = getProgress(lectureId);
+              const isCompleted = prog?.completed;
+              return (
+                <button key={lectureId} onClick={() => navigate({ name: 'lecture', subjectSlug: ch?.subject?.slug || '', chapterSlug: ch?.slug || '', lectureId })}
+                  className="group flex-shrink-0 w-44 bg-white border border-gray-200 rounded-2xl p-2.5 text-left hover:shadow-soft hover:border-primary-200 transition-all duration-300">
+                  <div className="relative w-full h-20 rounded-lg overflow-hidden mb-2">
+                    <img src={lec.thumbnail_url || FALLBACK_THUMB} alt="" loading="lazy" className="w-full h-full object-cover" />
+                    {isCompleted && <div className="absolute inset-0 bg-success-600/40 flex items-center justify-center"><CheckCircle className="w-5 h-5 text-white" /></div>}
+                  </div>
+                  <p className="text-xs font-semibold text-gray-900 line-clamp-1">{lec.title}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-1">{ch?.title}</p>
+                </button>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Teachers Quick Link */}
+      <motion.div className="mb-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.4 }}>
+        <button
+          onClick={() => navigate({ name: 'teachers' })}
+          className="group w-full bg-gradient-to-r from-primary-500 to-accent-400 rounded-3xl p-5 flex items-center justify-between text-white hover:shadow-premium transition-all duration-300"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
+              <GraduationCap className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-white">Our Teachers</h3>
+              <p className="text-xs text-white/80">Learn from expert educators</p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-white/80 group-hover:translate-x-1 transition-transform" />
+        </button>
       </motion.div>
 
       {/* Subjects */}

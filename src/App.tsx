@@ -9,9 +9,12 @@ import { SimplePage } from './components/SimplePage';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 
 const HomePage         = lazy(() => import('./components/HomePage').then(m => ({ default: m.HomePage })));
+const TeacherListPage  = lazy(() => import('./components/TeacherPages').then(m => ({ default: m.TeacherListPage })));
+const TeacherDetailPage= lazy(() => import('./components/TeacherPages').then(m => ({ default: m.TeacherDetailPage })));
 const CourseListPage   = lazy(() => import('./components/CoursePages').then(m => ({ default: m.CourseListPage })));
 const CourseDetailPage = lazy(() => import('./components/CoursePages').then(m => ({ default: m.CourseDetailPage })));
 const ChapterPage      = lazy(() => import('./components/CoursePages').then(m => ({ default: m.ChapterPage })));
+const FolderPage       = lazy(() => import('./components/FolderPage').then(m => ({ default: m.FolderPage })));
 const LecturePage      = lazy(() => import('./components/LecturePage').then(m => ({ default: m.LecturePage })));
 const SearchPage       = lazy(() => import('./components/SearchPage').then(m => ({ default: m.SearchPage })));
 const ProfilePage      = lazy(() => import('./components/ProfilePage').then(m => ({ default: m.ProfilePage })));
@@ -38,8 +41,11 @@ function Routes() {
   const renderPage = () => {
     switch (route.name) {
       case 'home':           return <HomePage />;
+      case 'teachers':       return <TeacherListPage />;
+      case 'teacher':        return <TeacherDetailPage teacherSlug={route.teacherSlug} />;
       case 'courses':        return <CourseListPage />;
       case 'course':         return <CourseDetailPage slug={route.slug} />;
+      case 'folder':         return <FolderPage subjectSlug={route.subjectSlug} folderSlug={route.folderSlug} />;
       case 'chapter':        return <ChapterPage subjectSlug={route.subjectSlug} chapterSlug={route.chapterSlug} />;
       case 'lecture':        return <LecturePage subjectSlug={route.subjectSlug} chapterSlug={route.chapterSlug} lectureId={route.lectureId} />;
       case 'search':         return <SearchPage />;
@@ -61,7 +67,7 @@ function Routes() {
   return (
     <AnimatePresence mode="wait">
       <motion.div
-        key={route.name + (route.name === 'lecture' ? route.lectureId : '') + (route.name === 'course' ? route.slug : '') + (route.name === 'chapter' ? route.chapterSlug : '')}
+        key={route.name + (route.name === 'lecture' ? route.lectureId : '') + (route.name === 'course' ? route.slug : '') + (route.name === 'chapter' ? route.chapterSlug : '') + (route.name === 'folder' ? route.folderSlug : '') + (route.name === 'teacher' ? route.teacherSlug : '')}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -8 }}

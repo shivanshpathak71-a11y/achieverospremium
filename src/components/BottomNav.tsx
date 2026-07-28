@@ -15,7 +15,7 @@ export function BottomNav() {
 
   const isActive = (tabId: string) => {
     if (tabId === 'home') return route.name === 'home';
-    if (tabId === 'courses') return ['courses', 'course', 'chapter', 'lecture', 'free-content'].includes(route.name);
+    if (tabId === 'courses') return ['courses', 'course', 'chapter', 'lecture', 'folder', 'teacher', 'teachers', 'free-content'].includes(route.name);
     if (tabId === 'test-series') return route.name === 'test-series';
     if (tabId === 'ai-assistant') return route.name === 'ai-assistant';
     if (tabId === 'profile') return route.name === 'profile';

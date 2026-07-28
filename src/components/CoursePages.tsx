@@ -4,12 +4,13 @@ import {
   ChevronLeft, ChevronRight, Play, Clock, FileText, Pin, BookOpen,
   CheckCircle, Calendar, Radio, Clock3, BadgeIndianRupee, Users,
   ShieldCheck, ChevronDown, Award, Youtube, Sparkles, Layers,
-  GraduationCap, ArrowRight, Star, TrendingUp, Eye, Gift, Zap,
-  Video, Info, Download, StickyNote, CalendarClock
+  GraduationCap, ArrowRight, Star, TrendingUp, Gift,
+  Video, Info, Download, StickyNote, CalendarClock, FolderOpen
 } from 'lucide-react';
 import { useRouter } from '../lib/router';
-import { useSubjects, useSubject, useChaptersBySubjectSlug, useLectures, useAllLectures, useAllChapters, useCourseNotes, formatDuration } from '../lib/hooks';
+import { useSubjects, useSubject, useChaptersBySubjectSlug, useLectures, useAllLectures, useAllChapters, useCourseNotes, useFoldersBySubject, useTopicsByChapter, formatDuration } from '../lib/hooks';
 import { getProgress, getCourseProgress, getAllProgress } from '../lib/storage';
+import { Breadcrumbs } from './Breadcrumbs';
 import * as LucideIcons from 'lucide-react';
 
 const FALLBACK_THUMB = 'https://images.pexels.com/photos/256541/pexels-photo-256541.jpeg?auto=compress&cs=tinysrgb&w=400';
@@ -174,12 +175,13 @@ export function CourseDetailPage({ slug }: { slug: string }) {
   const { navigate } = useRouter();
   const { subject, loading: subLoading } = useSubject(slug);
   const { chapters, loading: chLoading } = useChaptersBySubjectSlug(slug);
+  const { folders, loading: foldersLoading } = useFoldersBySubject(subject?.id);
   const { lectures } = useAllLectures();
   const { notes, loading: notesLoading } = useCourseNotes(subject?.id);
   const [activeMainTab, setActiveMainTab] = useState<'videos' | 'notes' | 'live'>('videos');
   const [activeDetailTab, setActiveDetailTab] = useState<'timetable' | 'faculty' | 'faqs' | 'highlights'>('timetable');
 
-  if (subLoading || chLoading) return (
+  if (subLoading || chLoading || foldersLoading) return (
     <div className="pt-20 max-w-5xl mx-auto px-4">
       <div className="h-48 skeleton rounded-3xl mb-6" />
       <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-20 skeleton rounded-2xl" />)}</div>
@@ -421,51 +423,54 @@ export function CourseDetailPage({ slug }: { slug: string }) {
       {/* ═══ VIDEOS TAB (two-column layout) ═══ */}
       {activeMainTab === 'videos' && (
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* ─── LEFT: Chapters & Lectures ─── */}
+        {/* ─── LEFT: Folders & Chapters ─── */}
         <div className="flex-1 min-w-0 order-1">
           <motion.div
             initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.35 }}
           >
             <div className="flex items-center justify-between mb-4">
-              <SectionHeading icon={Layers} title="Chapters & Lectures" accent="primary" />
-              {chapters.length > 0 && (
-                <span className="text-xs text-gray-400 font-medium">{chapters.length} chapters · {totalLectures} lectures</span>
+              <SectionHeading icon={FolderOpen} title="Course Folders" accent="primary" />
+              {folders.length > 0 && (
+                <span className="text-xs text-gray-400 font-medium">{folders.length} folders · {chapters.length} chapters</span>
               )}
             </div>
 
             <div className="space-y-3">
-              {chapters.map((ch, i) => {
-                const chapterLectures = lectures.filter((l) => l.chapter_id === ch.id);
-                const chapterLectureIds = chapterLectures.map((l) => l.id);
-                const completedCount = chapterLectureIds.filter((id) => allProgress[id]?.completed).length;
-                const totalCount = chapterLectureIds.length;
+              {folders.map((folder, i) => {
+                const folderChapters = chapters.filter((c) => c.folder_id === folder.id);
+                const folderLectureIds = lectures
+                  .filter((l) => folderChapters.some((c) => c.id === l.chapter_id))
+                  .map((l) => l.id);
+                const completedCount = folderLectureIds.filter((id) => allProgress[id]?.completed).length;
+                const totalCount = folderLectureIds.length;
                 const completionPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-                const totalDuration = chapterLectures.reduce((sum, l) => sum + l.duration_seconds, 0);
-                const watchedDuration = chapterLectures.reduce((sum, l) => sum + (allProgress[l.id]?.position || 0), 0);
-                const remainingDuration = Math.max(0, totalDuration - watchedDuration);
-                const lastOpened = chapterLectures.map((l) => allProgress[l.id]?.updatedAt || 0).sort((a, b) => b - a)[0];
+                const totalDuration = lectures
+                  .filter((l) => folderChapters.some((c) => c.id === l.chapter_id))
+                  .reduce((sum, l) => sum + l.duration_seconds, 0);
 
                 return (
                   <motion.button
-                    key={ch.id}
-                    onClick={() => navigate({ name: 'chapter', subjectSlug: subject.slug, chapterSlug: ch.slug })}
+                    key={folder.id}
+                    onClick={() => navigate({ name: 'folder', subjectSlug: subject.slug, folderSlug: folder.slug })}
                     className="group w-full bg-white border border-gray-200 rounded-2xl p-5 text-left hover:shadow-premium hover:border-primary-200 transition-all duration-300 relative overflow-hidden"
                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 + i * 0.05, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                     whileHover={{ y: -2 }} whileTap={{ scale: 1.005 }}
                   >
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-center gap-4 flex-1 min-w-0">
-                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-sm transition-colors ${completionPct === 100 ? 'bg-success-50 text-success-600' : 'bg-gray-100 text-gray-500 group-hover:bg-primary-50 group-hover:text-primary-600'}`}>
-                          {completionPct === 100 ? <CheckCircle className="w-5 h-5" /> : String(i + 1).padStart(2, '0')}
+                        <div
+                          className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors"
+                          style={{ background: `${folder.color || '#f59e0b'}15` }}
+                        >
+                          <FolderOpen className="w-5 h-5" style={{ color: folder.color || '#f59e0b' }} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-gray-900 text-sm group-hover:text-primary-600 transition-colors">{ch.title}</h3>
-                          {ch.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{ch.description}</p>}
+                          <h3 className="font-semibold text-gray-900 text-sm group-hover:text-primary-600 transition-colors">{folder.title}</h3>
+                          {folder.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{folder.description}</p>}
                           <div className="flex items-center gap-3 mt-2 text-[11px] text-gray-400">
+                            <span className="flex items-center gap-1"><Layers className="w-3 h-3" /> {folderChapters.length} chapters</span>
                             <span className="flex items-center gap-1"><FileText className="w-3 h-3" /> {totalCount} lectures</span>
                             {totalDuration > 0 && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {formatDuration(totalDuration)}</span>}
-                            {remainingDuration > 0 && completionPct < 100 && <span className="text-primary-500 font-medium">{formatDuration(remainingDuration)} left</span>}
-                            {lastOpened && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {timeAgo(lastOpened)}</span>}
                           </div>
                         </div>
                       </div>
@@ -491,12 +496,42 @@ export function CourseDetailPage({ slug }: { slug: string }) {
                   </motion.button>
                 );
               })}
-              {chapters.length === 0 && (
+              {folders.length === 0 && chapters.length > 0 && (
+                <div className="space-y-3">
+                  {chapters.map((ch, i) => {
+                    const chapterLectures = lectures.filter((l) => l.chapter_id === ch.id);
+                    const chapterLectureIds = chapterLectures.map((l) => l.id);
+                    const completionPct = chapterLectureIds.length > 0 ? getCourseProgress(chapterLectureIds) : 0;
+                    return (
+                      <motion.button
+                        key={ch.id}
+                        onClick={() => navigate({ name: 'chapter', subjectSlug: subject.slug, chapterSlug: ch.slug })}
+                        className="group w-full bg-white border border-gray-200 rounded-2xl p-5 text-left hover:shadow-premium hover:border-primary-200 transition-all duration-300 relative"
+                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 + i * 0.05, duration: 0.3 }}
+                        whileHover={{ y: -2 }} whileTap={{ scale: 1.005 }}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 group-hover:bg-primary-50 transition-colors">
+                            <Layers className="w-5 h-5 text-gray-500 group-hover:text-primary-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-gray-900 text-sm group-hover:text-primary-600 transition-colors">{ch.title}</h3>
+                            <p className="text-xs text-gray-400 mt-1">{chapterLectures.length} lectures</p>
+                          </div>
+                          {completionPct > 0 && <span className="text-sm font-bold text-primary-500">{completionPct}%</span>}
+                          <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-primary-500 group-hover:translate-x-0.5 transition-all duration-300" />
+                        </div>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              )}
+              {folders.length === 0 && chapters.length === 0 && (
                 <div className="bg-white border border-gray-200 rounded-3xl p-12 text-center">
                   <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
-                    <BookOpen className="w-8 h-8 text-gray-300" />
+                    <FolderOpen className="w-8 h-8 text-gray-300" />
                   </div>
-                  <p className="text-sm text-gray-400">No chapters yet.</p>
+                  <p className="text-sm text-gray-400">No folders yet.</p>
                 </div>
               )}
             </div>
@@ -806,16 +841,6 @@ export function CourseDetailPage({ slug }: { slug: string }) {
   );
 }
 
-function timeAgo(timestamp: number): string {
-  if (!timestamp) return '';
-  const diff = Date.now() - timestamp;
-  const days = Math.floor(diff / 86400000);
-  if (days === 0) return 'Today';
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return `${days}d ago`;
-  if (days < 30) return `${Math.floor(days / 7)}w ago`;
-  return `${Math.floor(days / 30)}mo ago`;
-}
 
 /* ═══════════════════════════════════════════════════
    CHAPTER PAGE
@@ -826,8 +851,10 @@ export function ChapterPage({ subjectSlug, chapterSlug, currentLectureId }: { su
   const { chapters, loading: chLoading } = useChaptersBySubjectSlug(subjectSlug);
   const chapter = chapters.find((c) => c.slug === chapterSlug);
   const { lectures, loading: lecLoading } = useLectures(chapter?.id);
+  const { topics, loading: topicsLoading } = useTopicsByChapter(chapter?.id);
+  const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
 
-  if (subLoading || chLoading || lecLoading) return (
+  if (subLoading || chLoading || lecLoading || topicsLoading) return (
     <div className="pt-20 max-w-4xl mx-auto px-4">
       <div className="h-8 w-48 skeleton rounded-lg mb-4" />
       <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-16 skeleton rounded-2xl" />)}</div>
@@ -840,21 +867,19 @@ export function ChapterPage({ subjectSlug, chapterSlug, currentLectureId }: { su
   const completionPct = lectures.length > 0 ? Math.round((completedCount / lectures.length) * 100) : 0;
   const totalDuration = lectures.reduce((sum, l) => sum + l.duration_seconds, 0);
 
+  // Group lectures by topic or show flat list
+  const hasTopics = topics.length > 0;
+    const lecturesWithoutTopics = lectures.filter((l) => !l.topic_id);
+
   return (
-    <div className="pt-20 pb-24 lg:pb-16 max-w-4xl mx-auto px-4">
-      <motion.button
-        onClick={() => subject && navigate({ name: 'course', slug: subject.slug })}
-        className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 mb-4 mt-4 transition-colors group"
-        initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-      >
-        <div className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center group-hover:border-primary-200 group-hover:bg-primary-50 transition-all">
-          <ChevronLeft className="w-4 h-4" />
-        </div>
-        <span>{subject?.title || 'Back'}</span>
-      </motion.button>
+    <div className="pt-16 pb-24 lg:pb-16 max-w-4xl mx-auto px-4">
+      <Breadcrumbs items={[
+        { label: subject?.title || 'Subject', route: { name: 'course', slug: subjectSlug } },
+        { label: chapter.title },
+      ]} />
 
       <motion.div
-        className="mb-6"
+        className="mb-6 mt-4"
         initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
       >
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 border border-primary-100 mb-3">
@@ -889,73 +914,69 @@ export function ChapterPage({ subjectSlug, chapterSlug, currentLectureId }: { su
         </motion.div>
       )}
 
+      {/* Topics as expandable cards */}
+      {hasTopics && (
+        <div className="space-y-3 mb-4">
+          {topics.map((topic, i) => {
+            const topicLectures = lectures.filter((l) => l.topic_id === topic.id);
+            const topicCompleted = topicLectures.filter((l) => allProgress[l.id]?.completed).length;
+            const topicPct = topicLectures.length > 0 ? Math.round((topicCompleted / topicLectures.length) * 100) : 0;
+            const isExpanded = expandedTopic === topic.id;
+
+            return (
+              <motion.div
+                key={topic.id}
+                className="bg-white border border-gray-200 rounded-2xl overflow-hidden"
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05, duration: 0.3 }}
+              >
+                <button
+                  onClick={() => setExpandedTopic(isExpanded ? null : topic.id)}
+                  className="w-full p-4 flex items-center gap-4 text-left hover:bg-gray-50 transition-colors"
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${isExpanded ? 'bg-primary-50' : 'bg-gray-100'}`}>
+                    <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900 text-sm">{topic.title}</h3>
+                    <div className="flex items-center gap-3 mt-1 text-[11px] text-gray-400">
+                      <span className="flex items-center gap-1"><FileText className="w-3 h-3" /> {topicLectures.length} lectures</span>
+                      {topicPct > 0 && <span className="text-primary-500 font-medium">{topicPct}%</span>}
+                    </div>
+                  </div>
+                  {topicPct > 0 && (
+                    <div className="w-20 h-1.5 rounded-full bg-gray-100 overflow-hidden flex-shrink-0">
+                      <div className="h-full rounded-full bg-gradient-to-r from-primary-500 to-accent-400" style={{ width: `${topicPct}%` }} />
+                    </div>
+                  )}
+                </button>
+                <AnimatePresence initial={false}>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-4 pb-3 space-y-2 border-t border-gray-100">
+                        {topicLectures.map((lec) => (
+                          <LectureRow key={lec.id} lec={lec} subjectSlug={subjectSlug} chapterSlug={chapterSlug} currentLectureId={currentLectureId} navigate={navigate} />
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Lectures without topics (or all lectures if no topics) */}
       <div className="space-y-2.5">
-        {lectures.map((lec, i) => {
-          const prog = getProgress(lec.id);
-          const pct = prog && lec.duration_seconds > 0 ? Math.min(100, (prog.position / lec.duration_seconds) * 100) : 0;
-          const isCompleted = prog?.completed;
-          const hasPdf = (lec.pdf_urls && lec.pdf_urls.length > 0) || lec.pdf_url;
-          const hasTest = lec.class_tests && lec.class_tests.length > 0;
-          return (
-            <motion.button
-              key={lec.id}
-              onClick={() => navigate({ name: 'lecture', subjectSlug, chapterSlug, lectureId: lec.id })}
-              className={`group w-full bg-white border rounded-2xl p-4 flex items-center gap-4 text-left transition-all duration-300 ${lec.id === currentLectureId ? 'border-primary-300 ring-1 ring-primary-100 shadow-soft' : 'border-gray-200 hover:border-primary-200 hover:shadow-soft'}`}
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              whileHover={{ y: -1 }} whileTap={{ scale: 0.99 }}
-            >
-              <div className="relative w-20 h-14 rounded-xl overflow-hidden flex-shrink-0">
-                <img src={lec.thumbnail_url || FALLBACK_THUMB} alt="" loading="lazy" className="w-full h-full object-cover" />
-                {isCompleted ? (
-                  <div className="absolute inset-0 bg-success-600/50 flex items-center justify-center">
-                    <CheckCircle className="w-5 h-5 text-white" />
-                  </div>
-                ) : (
-                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center group-hover:bg-black/30 transition-colors">
-                    <Play className="w-4 h-4 text-white fill-white" />
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  {lec.is_pinned && <Pin className="w-3 h-3 text-primary-500 flex-shrink-0" />}
-                  {lec.is_new && <span className="badge bg-primary-50 text-primary-600 border border-primary-200 text-[9px]">NEW</span>}
-                  {lec.is_live && (
-                    <span className="inline-flex items-center gap-0.5 bg-rose-500 text-white rounded px-1.5 py-0.5 text-[8px] font-bold tracking-wide flex-shrink-0">
-                      <Radio className="w-2 h-2 text-white fill-white" /> LIVE
-                    </span>
-                  )}
-                  {lec.is_free && !lec.is_live && (
-                    <span className="inline-flex items-center gap-0.5 bg-success-50 text-success-600 rounded px-1.5 py-0.5 text-[8px] font-bold flex-shrink-0">
-                      <Gift className="w-2.5 h-2.5" /> FREE
-                    </span>
-                  )}
-                  {lec.is_blinking && (
-                    <span className="inline-flex items-center gap-0.5 bg-amber-50 text-amber-600 rounded px-1.5 py-0.5 text-[8px] font-bold flex-shrink-0">
-                      <Zap className="w-2.5 h-2.5" /> NEW
-                    </span>
-                  )}
-                  <p className="font-semibold text-gray-900 text-sm line-clamp-1">{lec.title}</p>
-                </div>
-                <div className="flex items-center gap-2.5 text-[11px] text-gray-400">
-                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {formatDuration(lec.duration_seconds)}</span>
-                  {lec.teacher_name && <><span>·</span><span>{lec.teacher_name}</span></>}
-                  {lec.unique_view_count > 0 && <><span>·</span><span className="flex items-center gap-0.5"><Eye className="w-3 h-3" /> {lec.unique_view_count}</span></>}
-                  {hasPdf && <span className="flex items-center gap-0.5 text-primary-500"><FileText className="w-3 h-3" /> PDF</span>}
-                  {hasTest && <span className="flex items-center gap-0.5 text-amber-500"><Award className="w-3 h-3" /> Test</span>}
-                </div>
-                {pct > 0 && (
-                  <div className="h-1 rounded-full bg-gray-100 mt-2 overflow-hidden max-w-[200px]">
-                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: isCompleted ? '#22c55e' : '#14b8a6' }} />
-                  </div>
-                )}
-              </div>
-              <div className="w-8 h-8 rounded-full bg-gray-50 group-hover:bg-primary-50 flex items-center justify-center transition-colors flex-shrink-0">
-                <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-primary-500 group-hover:translate-x-0.5 transition-all duration-300" />
-              </div>
-            </motion.button>
-          );
-        })}
+        {(!hasTopics ? lectures : lecturesWithoutTopics).map((lec, i) => (
+          <LectureRow key={lec.id} lec={lec} subjectSlug={subjectSlug} chapterSlug={chapterSlug} currentLectureId={currentLectureId} navigate={navigate} index={i} />
+        ))}
         {lectures.length === 0 && (
           <div className="bg-white border border-gray-200 rounded-3xl p-12 text-center">
             <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
@@ -966,5 +987,70 @@ export function ChapterPage({ subjectSlug, chapterSlug, currentLectureId }: { su
         )}
       </div>
     </div>
+  );
+}
+
+function LectureRow({ lec, subjectSlug, chapterSlug, currentLectureId, navigate, index }: {
+  lec: import('../lib/supabase').Lecture;
+  subjectSlug: string; chapterSlug: string; currentLectureId?: string;
+  navigate: (r: import('../lib/router').Route) => void; index?: number;
+}) {
+  const prog = getProgress(lec.id);
+  const pct = prog && lec.duration_seconds > 0 ? Math.min(100, (prog.position / lec.duration_seconds) * 100) : 0;
+  const isCompleted = prog?.completed;
+  const hasPdf = (lec.pdf_urls && lec.pdf_urls.length > 0) || lec.pdf_url;
+  const hasTest = lec.class_tests && lec.class_tests.length > 0;
+
+  return (
+    <motion.button
+      onClick={() => navigate({ name: 'lecture', subjectSlug, chapterSlug, lectureId: lec.id })}
+      className={`group w-full bg-white border rounded-2xl p-4 flex items-center gap-4 text-left transition-all duration-300 ${lec.id === currentLectureId ? 'border-primary-300 ring-1 ring-primary-100 shadow-soft' : 'border-gray-200 hover:border-primary-200 hover:shadow-soft'}`}
+      initial={index !== undefined ? { opacity: 0, y: 10 } : false} animate={{ opacity: 1, y: 0 }} transition={index !== undefined ? { delay: index * 0.04, duration: 0.3 } : undefined}
+      whileHover={{ y: -1 }} whileTap={{ scale: 0.99 }}
+    >
+      <div className="relative w-20 h-14 rounded-xl overflow-hidden flex-shrink-0">
+        <img src={lec.thumbnail_url || FALLBACK_THUMB} alt="" loading="lazy" className="w-full h-full object-cover" />
+        {isCompleted ? (
+          <div className="absolute inset-0 bg-success-600/50 flex items-center justify-center">
+            <CheckCircle className="w-5 h-5 text-white" />
+          </div>
+        ) : (
+          <div className="absolute inset-0 bg-black/20 flex items-center justify-center group-hover:bg-black/30 transition-colors">
+            <Play className="w-4 h-4 text-white fill-white" />
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          {lec.is_pinned && <Pin className="w-3 h-3 text-primary-500 flex-shrink-0" />}
+          {lec.is_new && <span className="badge bg-primary-50 text-primary-600 border border-primary-200 text-[9px]">NEW</span>}
+          {lec.is_live && (
+            <span className="inline-flex items-center gap-0.5 bg-rose-500 text-white rounded px-1.5 py-0.5 text-[8px] font-bold tracking-wide flex-shrink-0">
+              <Radio className="w-2 h-2 text-white fill-white" /> LIVE
+            </span>
+          )}
+          {lec.is_free && !lec.is_live && (
+            <span className="inline-flex items-center gap-0.5 bg-success-50 text-success-600 rounded px-1.5 py-0.5 text-[8px] font-bold flex-shrink-0">
+              <Gift className="w-2.5 h-2.5" /> FREE
+            </span>
+          )}
+          <p className="font-semibold text-gray-900 text-sm line-clamp-1">{lec.title}</p>
+        </div>
+        <div className="flex items-center gap-2.5 text-[11px] text-gray-400">
+          <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {formatDuration(lec.duration_seconds)}</span>
+          {lec.teacher_name && <><span>·</span><span>{lec.teacher_name}</span></>}
+          {hasPdf && <span className="flex items-center gap-0.5 text-primary-500"><FileText className="w-3 h-3" /> PDF</span>}
+          {hasTest && <span className="flex items-center gap-0.5 text-amber-500"><Award className="w-3 h-3" /> Test</span>}
+        </div>
+        {pct > 0 && (
+          <div className="h-1 rounded-full bg-gray-100 mt-2 overflow-hidden max-w-[200px]">
+            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: isCompleted ? '#22c55e' : '#14b8a6' }} />
+          </div>
+        )}
+      </div>
+      <div className="w-8 h-8 rounded-full bg-gray-50 group-hover:bg-primary-50 flex items-center justify-center transition-colors flex-shrink-0">
+        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-primary-500 group-hover:translate-x-0.5 transition-all duration-300" />
+      </div>
+    </motion.button>
   );
 }
