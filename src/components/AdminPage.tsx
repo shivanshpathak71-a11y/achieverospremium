@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, CreditCard as Edit3, Trash2, Pin, Sparkles, BookOpen, Video, Upload, Save, Layers, FolderTree, Loader as Loader2, LogOut, Megaphone, Image, Copy } from 'lucide-react';
+import { Plus, CreditCard as Edit3, Trash2, Pin, Sparkles, BookOpen, Video, Upload, Save, Layers, FolderTree, Loader as Loader2, LogOut, Megaphone, Image, Copy, RefreshCw, CheckCircle } from 'lucide-react';
 import { supabase, type Subject, type Chapter, type Lecture } from '../lib/supabase';
 import { useSubjects, useChapters, useLectures, formatDuration } from '../lib/hooks';
 import * as LucideIcons from 'lucide-react';
@@ -16,6 +16,30 @@ export function AdminPage() {
 
 function AdminDashboard({ onLogout, adminEmail }: { onLogout: () => void; adminEmail: string }) {
   const [tab, setTab] = useState<Tab>('lectures');
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-selection-batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+        body: '{}',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSyncResult({ ok: true, msg: `Synced ${data.totalClasses} classes (${data.newClasses} new)` });
+      } else {
+        setSyncResult({ ok: false, msg: data.error || 'Sync failed' });
+      }
+    } catch (err) {
+      setSyncResult({ ok: false, msg: 'Network error' });
+    }
+    setSyncing(false);
+    setTimeout(() => setSyncResult(null), 5000);
+  };
   const { subjects, loading: subjectsLoading } = useSubjects();
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | undefined>(undefined);
   const { chapters, loading: chaptersLoading } = useChapters(selectedSubjectId);
@@ -33,6 +57,15 @@ function AdminDashboard({ onLogout, adminEmail }: { onLogout: () => void; adminE
           <p className="text-gray-500">Manage content, announcements, and banners.</p>
         </div>
         <div className="flex items-center gap-3">
+          {syncResult && (
+            <span className={`text-xs font-medium flex items-center gap-1.5 ${syncResult.ok ? 'text-green-600' : 'text-red-500'}`}>
+              {syncResult.ok ? <CheckCircle className="w-3.5 h-3.5" /> : null}
+              {syncResult.msg}
+            </span>
+          )}
+          <button onClick={handleSync} disabled={syncing} className="btn-secondary text-sm py-2 px-3">
+            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Sync Now
+          </button>
           <div className="text-right hidden sm:block"><p className="text-xs text-gray-400">Signed in as</p><p className="text-xs font-semibold text-gray-700">{adminEmail}</p></div>
           <button onClick={onLogout} className="btn-secondary text-sm py-2 px-3"><LogOut className="w-4 h-4" /> Logout</button>
         </div>
