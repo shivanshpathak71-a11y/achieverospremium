@@ -54,8 +54,9 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
   // MP4 files load directly from the CDN — <video src> doesn't enforce CORS, so no proxy needed.
   const PROXY_BASE = 'https://hdkbxuxzedsqyiccwomw.supabase.co/functions/v1/hls-proxy';
   const isHls = lecture.video_url?.includes('.m3u8') ?? false;
-  const streamUrl = isHls && lecture.video_url
-    ? `${PROXY_BASE}?u=${encodeURIComponent(lecture.video_url)}&rewrite=1`
+  const needsProxy = !!lecture.video_url && (isHls || lecture.video_url.includes('hranker.com'));
+  const streamUrl = needsProxy && lecture.video_url
+    ? `${PROXY_BASE}?u=${encodeURIComponent(lecture.video_url)}${isHls ? '&rewrite=1' : ''}`
     : lecture.video_url || '';
 
   // HLS stream support
