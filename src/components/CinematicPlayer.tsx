@@ -56,8 +56,8 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
     if (!v || !lecture.video_url) return;
 
     const isHls = lecture.video_url.includes('.m3u8');
-    // selectionwaylive CDN blocks browser Origin headers — route through proxy
-    const needsProxy = lecture.video_url.includes('selectionwaylive.hranker.com');
+    // hranker CDNs block browser Origin headers — route all hranker HLS through proxy
+    const needsProxy = lecture.video_url.includes('hranker.com');
     const PROXY_BASE = 'https://hdkbxuxzedsqyiccwomw.supabase.co/functions/v1/hls-proxy';
     const streamUrl = needsProxy
       ? `${PROXY_BASE}?u=${encodeURIComponent(lecture.video_url)}&rewrite=1`
