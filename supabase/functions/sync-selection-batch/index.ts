@@ -185,8 +185,8 @@ Deno.serve(async (req: Request) => {
         const cls = topic.classes[cIdx];
         totalClasses++;
 
-        // Pick best video URL: prefer 720p mp4, fallback to 480p, then class_link
-        let videoUrl = cls.class_link;
+        // Pick best video URL: prefer 720p mp4, fallback to any mp4, then HLS class_link
+        let videoUrl = cls.class_link || null;
         if (cls.mp4Recordings && cls.mp4Recordings.length > 0) {
           const sorted = [...cls.mp4Recordings].sort((a, b) => {
             const qa = parseInt(a.quality) || 0;
@@ -194,6 +194,9 @@ Deno.serve(async (req: Request) => {
             return qb - qa;
           });
           videoUrl = sorted[0].url;
+        }
+        if (!videoUrl && cls.class_link) {
+          videoUrl = cls.class_link;
         }
 
         // Pick PDF URL if available

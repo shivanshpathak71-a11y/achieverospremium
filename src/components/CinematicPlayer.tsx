@@ -6,6 +6,7 @@ import {
   Monitor, PictureInPicture, Camera, Lock, Unlock,
   Repeat, Gauge,
 } from 'lucide-react';
+import Hls from 'hls.js';
 import type { Lecture } from '../lib/supabase';
 import { formatDuration } from '../lib/hooks';
 import { getProgress, setProgress, addStudyTime } from '../lib/storage';
@@ -47,6 +48,23 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
   const [resumeChecked, setResumeChecked] = useState(false);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const lastTapRef = useRef<{ time: number; side: 'left' | 'right' } | null>(null);
+  const hlsRef = useRef<Hls | null>(null);
+
+  // HLS stream support
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !lecture.video_url) return;
+
+    const isHls = lecture.video_url.includes('.m3u8');
+    if (isHls && Hls.isSupported()) {
+      const hls = new Hls({ enableWorker: true });
+      hlsRef.current = hls;
+      hls.loadSource(lecture.video_url);
+      hls.attachMedia(v);
+      return () => { hls.destroy(); hlsRef.current = null; };
+    }
+    // Native HLS (Safari) or plain MP4 — browser handles it
+  }, [lecture.video_url]);
 
   // Persist settings
   useEffect(() => { localStorage.setItem(LS_SPEED, String(speed)); }, [speed]);
