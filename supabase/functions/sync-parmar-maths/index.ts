@@ -7,8 +7,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const COURSE_ID = "82";
-const COURSE_SLUG = "parmar-maths-foundation";
+const DEFAULT_COURSE_ID = "82";
+const DEFAULT_COURSE_SLUG = "parmar-maths-foundation";
 const API_BASE = "https://parmaracademyapi.classx.co.in";
 const API_HEADERS = {
   "User-Agent": "Mozilla/5.0",
@@ -113,9 +113,26 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    // Parse course ID + slug from request (defaults to Maths Foundation course 82)
+    let courseId = DEFAULT_COURSE_ID;
+    let courseSlug = DEFAULT_COURSE_SLUG;
+    if (req.method === "POST") {
+      try {
+        const body = await req.json();
+        if (body.course_id) courseId = String(body.course_id);
+        if (body.course_slug) courseSlug = String(body.course_slug);
+      } catch { /* empty body = use defaults */ }
+    } else {
+      const url = new URL(req.url);
+      const qid = url.searchParams.get("course_id");
+      const qslug = url.searchParams.get("course_slug");
+      if (qid) courseId = qid;
+      if (qslug) courseSlug = qslug;
+    }
+
     // 1. Fetch course metadata
     const courseRes = await fetch(
-      `${API_BASE}/get/course_by_id?id=${COURSE_ID}`,
+      `${API_BASE}/get/course_by_id?id=${courseId}`,
       { headers: API_HEADERS },
     );
     if (!courseRes.ok) throw new Error(`Course API returned ${courseRes.status}`);
@@ -125,7 +142,7 @@ Deno.serve(async (req: Request) => {
 
     // 2. Fetch free content (demo videos)
     const contentRes = await fetch(
-      `${API_BASE}/get/course_class_freecontentv2?courseid=${COURSE_ID}&start=0&folder_wise_course=0`,
+      `${API_BASE}/get/course_class_freecontentv2?courseid=${courseId}&start=0&folder_wise_course=0`,
       { headers: API_HEADERS },
     );
     if (!contentRes.ok) throw new Error(`Content API returned ${contentRes.status}`);
@@ -140,7 +157,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // 4. Upsert subject
-    const sourceBatchId = `parmar-${COURSE_ID}`;
+    const sourceBatchId = `parmar-${courseId}`;
     const { data: subjectRow } = await supabase
       .from("subjects")
       .select("id")
@@ -173,7 +190,7 @@ Deno.serve(async (req: Request) => {
       await supabase.from("subjects").update(courseEnrichment).eq("id", subjectId);
     } else {
       const { data: newSubject, error } = await supabase.from("subjects").insert({
-        slug: COURSE_SLUG,
+        slug: courseSlug,
         icon: "Sigma",
         color: "#f59e0b",
         gradient: "from-amber-500 to-orange-500",
