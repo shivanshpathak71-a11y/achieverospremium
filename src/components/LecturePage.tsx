@@ -57,12 +57,19 @@ function useStenoPdfs(lecture: { source_batch_id?: string | null; source_class_i
     setLoading(true);
     const courseId = lecture.source_batch_id.replace('steno-', '');
     const proxyUrl = 'https://hdkbxuxzedsqyiccwomw.supabase.co/functions/v1/steno-video-proxy';
+    const hlsProxy = 'https://hdkbxuxzedsqyiccwomw.supabase.co/functions/v1/hls-proxy';
     fetch(`${proxyUrl}?course_id=${courseId}&video_id=${lecture.source_class_id}`)
       .then(r => r.json())
       .then(d => {
         const result: { name: string; url: string }[] = [];
-        if (d.pdf_url) result.push({ name: 'PDF 1', url: d.pdf_url });
-        if (d.pdf_url2) result.push({ name: 'PDF 2', url: d.pdf_url2 });
+        const wrapUrl = (url: string) => {
+          if (url.includes('classx.co.in') || url.includes('appx.co.in')) {
+            return `${hlsProxy}?u=${encodeURIComponent(url)}`;
+          }
+          return url;
+        };
+        if (d.pdf_url) result.push({ name: 'PDF 1', url: wrapUrl(d.pdf_url) });
+        if (d.pdf_url2) result.push({ name: 'PDF 2', url: wrapUrl(d.pdf_url2) });
         if (result.length > 0) setPdfs(result);
       })
       .catch(() => {})

@@ -12,7 +12,15 @@ const corsHeaders = {
 const AES_KEY = "638udh3829162018"; // 16 bytes = AES-128
 const AES_IV = "fedcba9876543210";  // 16 bytes
 
+// In-memory token cache (persists across requests within the same isolate)
+let cachedToken: { token: string; userId: string; expires: number } | null = null;
+const TOKEN_TTL = 25 * 60 * 1000; // 25 minutes (AppX tokens typically last 30min)
+
 async function login(apiBase: string, emailOrPhone: string, password: string) {
+  // Return cached token if still valid
+  if (cachedToken && Date.now() < cachedToken.expires) {
+    return { token: cachedToken.token, userId: cachedToken.userId };
+  }
   const formData = new FormData();
   formData.append("source", "website");
   formData.append("email", emailOrPhone);
@@ -31,7 +39,12 @@ async function login(apiBase: string, emailOrPhone: string, password: string) {
   if (!res.ok) return null;
   const data = await res.json();
   if (data.status !== 200 || !data.data?.token) return null;
-  return { token: data.data.token, userId: String(data.data.userid) };
+  cachedToken = {
+    token: data.data.token,
+    userId: String(data.data.userid),
+    expires: Date.now() + TOKEN_TTL,
+  };
+  return { token: cachedToken.token, userId: cachedToken.userId };
 }
 
 // Decrypt AppX encrypted link using AES-128-CBC

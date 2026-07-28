@@ -31,11 +31,18 @@ function extractNextData(html: string): any | null {
   }
 }
 
+// In-memory token cache (persists across requests within the same isolate)
+let cachedToken: { token: string; userId: string; expires: number } | null = null;
+const TOKEN_TTL = 25 * 60 * 1000; // 25 minutes
+
 async function login(
   apiBase: string,
   emailOrPhone: string,
   password: string,
 ): Promise<{ token: string; userId: string } | null> {
+  if (cachedToken && Date.now() < cachedToken.expires) {
+    return { token: cachedToken.token, userId: cachedToken.userId };
+  }
   const formData = new FormData();
   formData.append("source", "website");
   formData.append("email", emailOrPhone);
@@ -54,11 +61,12 @@ async function login(
   if (!res.ok) return null;
   const data = await res.json();
   if (data.status !== 200 || !data.data?.token) return null;
-
-  return {
+  cachedToken = {
     token: data.data.token,
     userId: String(data.data.userid),
+    expires: Date.now() + TOKEN_TTL,
   };
+  return { token: cachedToken.token, userId: cachedToken.userId };
 }
 
 async function fetchCourseMetadata(courseId: string): Promise<any | null> {
