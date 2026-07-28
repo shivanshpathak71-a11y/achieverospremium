@@ -12,7 +12,12 @@ import { formatDuration } from '../lib/hooks';
 import { getProgress, setProgress, addStudyTime } from '../lib/storage';
 
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 4];
-const QUALITIES = ['Auto', '144p', '240p', '360p', '480p', '720p', '1080p'];
+const QUALITY_LABELS = ['Auto', '144p', '240p', '360p', '480p', '720p', '1080p'];
+
+const HEIGHT_TO_LABEL: Record<number, string> = {
+  144: '144p', 240: '240p', 360: '360p', 480: '480p',
+  720: '720p', 1080: '1080p', 1440: '1080p', 2160: '1080p',
+};
 
 const LS_SPEED = 'shivansh_playback_speed';
 const LS_VOLUME = 'shivansh_playback_volume';
@@ -39,6 +44,7 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
   const [menuView, setMenuView] = useState<MenuView>(null);
   const [speed, setSpeed] = useState(() => parseFloat(localStorage.getItem(LS_SPEED) || '1'));
   const [quality, setQuality] = useState('Auto');
+  const [availableQualities, setAvailableQualities] = useState<string[]>(['Auto']);
   const [showTapFeedback, setShowTapFeedback] = useState<null | 'left' | 'right'>(null);
   const [locked, setLocked] = useState(false);
   const [abRepeat, setAbRepeat] = useState<{ a: number | null; b: number | null }>({ a: null, b: null });
@@ -107,12 +113,27 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
         hls.loadSource(streamUrl || '');
         hls.attachMedia(v);
         hls.on(Hls.Events.MANIFEST_PARSED, (_e, data) => {
+          // Build available quality list from HLS levels
+          const labels = new Set<string>(['Auto']);
+          data.levels.forEach((lvl) => {
+            const label = HEIGHT_TO_LABEL[lvl.height] || (lvl.height + 'p');
+            labels.add(label);
+          });
+          const sorted = ['Auto', ...QUALITY_LABELS.filter((l) => labels.has(l)), ...Array.from(labels).filter((l) => l !== 'Auto' && !QUALITY_LABELS.includes(l))];
+          setAvailableQualities(sorted);
+
           // Auto-select a sensible starting level (not the highest)
           if (data.levels.length > 2) {
             const midLevel = Math.floor(data.levels.length / 2);
             hls.startLevel = midLevel;
           }
           v.play().catch(() => { /* autoplay blocked, user must tap */ });
+        });
+        hls.on(Hls.Events.LEVEL_SWITCHED, (_e, data) => {
+          const lvl = hls.levels[data.level];
+          if (lvl && hls.autoLevelEnabled) {
+            setQuality('Auto');
+          }
         });
         hls.on(Hls.Events.ERROR, (_event, data) => {
           console.error('[HLS]', data.type, data.details, data.fatal ? 'FATAL' : '', data.response?.code || '');
@@ -563,12 +584,28 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
                             <button onClick={() => setMenuView('main')} className="w-full px-3 py-1.5 rounded-lg text-xs text-white/60 hover:text-white hover:bg-white/10 flex items-center gap-1.5 transition-colors mb-0.5">
                               <ChevronLeft className="w-3 h-3" /> Back
                             </button>
-                            {QUALITIES.map((q) => (
-                              <button key={q} onClick={() => { setQuality(q); setMenuView(null); }}
-                                className={`w-full px-3 py-2 rounded-xl text-xs text-left flex items-center justify-between transition-colors ${quality === q ? 'text-primary-400 bg-white/10' : 'text-white hover:bg-white/10'}`}>
-                                {q} {quality === q && <Check className="w-3 h-3" />}
-                              </button>
-                            ))}
+                            {availableQualities.map((q) => {
+                              const isDisabled = !isHls && q !== 'Auto';
+                              return (
+                                <button key={q} disabled={isDisabled}
+                                  onClick={() => {
+                                    setQuality(q);
+                                    if (isHls && hlsRef.current) {
+                                      if (q === 'Auto') {
+                                        hlsRef.current.currentLevel = -1;
+                                      } else {
+                                        const targetHeight = parseInt(q);
+                                        const levelIdx = hlsRef.current.levels.findIndex((lvl) => lvl.height === targetHeight);
+                                        if (levelIdx >= 0) hlsRef.current.currentLevel = levelIdx;
+                                      }
+                                    }
+                                    setMenuView(null);
+                                  }}
+                                  className={`w-full px-3 py-2 rounded-xl text-xs text-left flex items-center justify-between transition-colors ${quality === q ? 'text-primary-400 bg-white/10' : isDisabled ? 'text-white/30 cursor-not-allowed' : 'text-white hover:bg-white/10'}`}>
+                                  {q} {quality === q && <Check className="w-3 h-3" />}
+                                </button>
+                              );
+                            })}
                           </>
                         )}
                       </motion.div>
