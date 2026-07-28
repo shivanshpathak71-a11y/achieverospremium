@@ -56,14 +56,27 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
     if (!v || !lecture.video_url) return;
 
     const isHls = lecture.video_url.includes('.m3u8');
-    if (isHls && Hls.isSupported()) {
-      const hls = new Hls({ enableWorker: true });
-      hlsRef.current = hls;
-      hls.loadSource(lecture.video_url);
-      hls.attachMedia(v);
-      return () => { hls.destroy(); hlsRef.current = null; };
+    if (isHls) {
+      if (Hls.isSupported()) {
+        const hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+        hlsRef.current = hls;
+        hls.loadSource(lecture.video_url);
+        hls.attachMedia(v);
+        hls.on(Hls.Events.ERROR, (_event, data) => {
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR: hls.startLoad(); break;
+              case Hls.ErrorTypes.MEDIA_ERROR: hls.recoverMediaError(); break;
+              default: hls.destroy(); hlsRef.current = null; break;
+            }
+          }
+        });
+        return () => { hls.destroy(); hlsRef.current = null; };
+      }
+      // Native HLS support (Safari/iOS) — set src directly
+      v.src = lecture.video_url;
     }
-    // Native HLS (Safari) or plain MP4 — browser handles it
+    // Plain MP4 — browser handles it via the src attribute
   }, [lecture.video_url]);
 
   // Persist settings
@@ -258,7 +271,7 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
       <div ref={containerRef} className="relative w-full h-full bg-black rounded-2xl overflow-hidden group select-none"
         onMouseMove={showControlsTemp} onMouseLeave={() => { if (!menuView && playing && !locked) setShowControls(false); }}
         style={{ cursor: locked ? 'no-drop' : (showControls ? 'auto' : 'none') }}>
-        <video ref={videoRef} src={lecture.video_url || undefined} poster={lecture.thumbnail_url || undefined}
+        <video ref={videoRef} src={lecture.video_url && !lecture.video_url.includes('.m3u8') ? lecture.video_url : undefined} poster={lecture.thumbnail_url || undefined}
           className="w-full h-full object-contain"
           onClick={handleVideoClick}
           onLoadedMetadata={() => {
