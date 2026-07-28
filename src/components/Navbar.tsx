@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Search as SearchIcon, Bell, Shield } from 'lucide-react';
+import { Search as SearchIcon, Bell, Shield, LogOut } from 'lucide-react';
 import { useRouter, type Route } from '../lib/router';
 import { AchieverLogo } from './AchieverLogo';
-import { useAdminStatus } from '../lib/hooks';
+import { useAuth } from '../lib/auth';
 
 const NAV_ITEMS: { label: string; route: Route }[] = [
   { label: 'Home',               route: { name: 'home' } },
@@ -15,8 +15,9 @@ const NAV_ITEMS: { label: string; route: Route }[] = [
 
 export function Navbar() {
   const { route, navigate } = useRouter();
-  const { isAdmin } = useAdminStatus();
+  const { isAdmin, user, signOut } = useAuth();
   const [scrolled, setScrolled] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -65,12 +66,33 @@ export function Navbar() {
             <Bell className="w-[18px] h-[18px]" />
             <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary-500" />
           </button>
-          <button onClick={() => navigate({ name: 'profile' })} className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold ml-1 transition-transform hover:scale-105" style={{ background: 'linear-gradient(135deg, #0d9488, #0891b2)' }} aria-label="Profile">S</button>
-          {isAdmin && (
-            <button onClick={() => navigate({ name: 'admin' })} className="w-9 h-9 rounded-lg flex items-center justify-center text-primary-600 hover:bg-primary-50 transition-all" aria-label="Admin Dashboard">
-              <Shield className="w-[18px] h-[18px]" />
+          <div className="relative ml-1">
+            <button onClick={() => setShowUserMenu(!showUserMenu)} className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold transition-transform hover:scale-105" style={{ background: 'linear-gradient(135deg, #0d9488, #0891b2)' }} aria-label="Profile">
+              {user?.email?.[0]?.toUpperCase() || 'S'}
             </button>
-          )}
+            {showUserMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                <div className="absolute right-0 top-11 z-50 w-56 bg-white border border-gray-200 rounded-2xl shadow-premium py-2">
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <p className="text-xs font-semibold text-gray-900 truncate">{user?.email || 'Guest'}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{isAdmin ? 'Administrator' : 'Visitor'}</p>
+                  </div>
+                  <button onClick={() => { setShowUserMenu(false); navigate({ name: 'profile' }); }} className="w-full px-4 py-2 text-left text-sm text-gray-600 hover:bg-gray-50 transition-colors">Profile</button>
+                  {isAdmin && (
+                    <button onClick={() => { setShowUserMenu(false); navigate({ name: 'admin' }); }} className="w-full px-4 py-2 text-left text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-2">
+                      <Shield className="w-3.5 h-3.5" /> Admin Dashboard
+                    </button>
+                  )}
+                  {user && (
+                    <button onClick={() => { setShowUserMenu(false); signOut(); }} className="w-full px-4 py-2 text-left text-sm text-red-500 hover:bg-red-50 transition-colors flex items-center gap-2">
+                      <LogOut className="w-3.5 h-3.5" /> Sign Out
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </nav>

@@ -8,9 +8,12 @@ const ICON_OPTIONS = ['BookOpen', 'PenTool', 'BookA', 'FileText', 'Video', 'Film
 
 type Tab = 'lectures' | 'chapters' | 'subjects' | 'announcements' | 'banners';
 
+import { useAuth } from '../lib/auth';
+
 export function AdminPage() {
-  const [adminEmail] = useState('shivanshpathak71@gmail.com');
-  const handleLogout = () => { window.location.reload(); };
+  const { user, signOut } = useAuth();
+  const adminEmail = user?.email || 'admin';
+  const handleLogout = () => { signOut(); window.location.reload(); };
   return <AdminDashboard onLogout={handleLogout} adminEmail={adminEmail} />;
 }
 

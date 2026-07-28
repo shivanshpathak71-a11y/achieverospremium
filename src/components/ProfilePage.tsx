@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { CircleCheck as CheckCircle, Clock, Play, ChevronRight, Trash2, Settings, Moon, Bell, Download, Bookmark, Flame, Target, TrendingUp } from 'lucide-react';
+import { CircleCheck as CheckCircle, Clock, Play, ChevronRight, Trash2, Settings, Moon, Bell, Download, Bookmark, Flame, Target, TrendingUp, LogIn, LogOut, Shield } from 'lucide-react';
 import { useRouter } from '../lib/router';
 import { useAllLectures, formatDuration } from '../lib/hooks';
 import { getAllProgress, getContinueWatching, clearAllProgress, getStudyStreak, getTodayStudySeconds, getDailyGoal, getTotalStudySeconds } from '../lib/storage';
+import { useAuth } from '../lib/auth';
 
 const FALLBACK_THUMB = 'https://images.pexels.com/photos/256541/pexels-photo-256541.jpeg?auto=compress&cs=tinysrgb&w=400';
 
 export function ProfilePage() {
   const { navigate } = useRouter();
+  const { user, isAdmin, signOut } = useAuth();
   const { lectures, loading } = useAllLectures();
   const allProgress = useMemo(() => getAllProgress(), []);
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
@@ -28,11 +30,11 @@ export function ProfilePage() {
         <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-primary-100/50 blur-3xl" />
         <div className="flex items-center gap-4 relative">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0d9488, #0891b2)' }}>
-            <span className="text-2xl font-bold text-white">S</span>
+            <span className="text-2xl font-bold text-white">{user?.email?.[0]?.toUpperCase() || 'S'}</span>
           </div>
           <div className="flex-1">
-            <h1 className="font-bold text-xl text-gray-900">Shivansh</h1>
-            <p className="text-sm text-gray-500">Income Tax Officer</p>
+            <h1 className="font-bold text-xl text-gray-900">{user?.email?.split('@')[0] || 'Shivansh'}</h1>
+            <p className="text-sm text-gray-500">{user ? (isAdmin ? 'Administrator' : 'Student') : 'Income Tax Officer'}</p>
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold text-gray-900">{completionRate}%</p>
@@ -118,11 +120,29 @@ export function ProfilePage() {
         </div>
       </section>
 
-      {Object.keys(allProgress).length > 0 && (
-        <div className="mt-8 pt-6 border-t border-gray-100">
-          <button onClick={handleClearProgress} className="text-xs text-red-500/70 hover:text-red-500 flex items-center gap-1.5 transition-colors"><Trash2 className="w-3.5 h-3.5" /> Clear all progress</button>
+      {isAdmin && (
+        <div className="mb-6">
+          <button onClick={() => navigate({ name: 'admin' })} className="w-full bg-white border border-gray-200 rounded-2xl p-4 flex items-center gap-3 hover:border-primary-200 hover:shadow-md transition-all group">
+            <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center"><Shield className="w-5 h-5 text-primary-500" /></div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-semibold text-gray-900">Admin Dashboard</p>
+              <p className="text-xs text-gray-400">Manage courses, lectures, and sync</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-primary-500 transition-colors" />
+          </button>
         </div>
       )}
+
+      <div className="mt-8 pt-6 border-t border-gray-100 space-y-3">
+        {user ? (
+          <button onClick={() => signOut()} className="text-xs text-gray-500 hover:text-red-500 flex items-center gap-1.5 transition-colors"><LogOut className="w-3.5 h-3.5" /> Sign out</button>
+        ) : (
+          <button onClick={() => navigate({ name: 'admin' })} className="text-xs text-primary-500 hover:text-primary-600 flex items-center gap-1.5 transition-colors"><LogIn className="w-3.5 h-3.5" /> Admin sign in</button>
+        )}
+        {Object.keys(allProgress).length > 0 && (
+          <button onClick={handleClearProgress} className="text-xs text-red-500/70 hover:text-red-500 flex items-center gap-1.5 transition-colors"><Trash2 className="w-3.5 h-3.5" /> Clear all progress</button>
+        )}
+      </div>
       {loading && <div className="space-y-2">{[1, 2, 3].map((i) => <div key={i} className="bg-white border border-gray-200 rounded-2xl h-16 animate-pulse" />)}</div>}
     </div>
   );

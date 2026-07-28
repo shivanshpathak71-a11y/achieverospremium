@@ -1,6 +1,7 @@
 import { Suspense, lazy, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RouterProvider, useRouter } from './lib/router';
+import { AuthProvider, useAuth } from './lib/auth';
 import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
 import { SplashScreen } from './components/SplashScreen';
@@ -14,6 +15,7 @@ const LecturePage      = lazy(() => import('./components/LecturePage').then(m =>
 const SearchPage       = lazy(() => import('./components/SearchPage').then(m => ({ default: m.SearchPage })));
 const ProfilePage      = lazy(() => import('./components/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const AdminPage        = lazy(() => import('./components/AdminPage').then(m => ({ default: m.AdminPage })));
+const LoginPage        = lazy(() => import('./components/LoginPage').then(m => ({ default: m.LoginPage })));
 
 function Loading() {
   return (
@@ -28,6 +30,7 @@ function Loading() {
 
 function Routes() {
   const { route } = useRouter();
+  const { user, isAdmin, loading } = useAuth();
 
   const renderPage = () => {
     switch (route.name) {
@@ -38,7 +41,10 @@ function Routes() {
       case 'lecture':        return <LecturePage subjectSlug={route.subjectSlug} chapterSlug={route.chapterSlug} lectureId={route.lectureId} />;
       case 'search':         return <SearchPage />;
       case 'profile':        return <ProfilePage />;
-      case 'admin':          return <AdminPage />;
+      case 'admin':
+        if (loading) return <Loading />;
+        if (!user || !isAdmin) return <LoginPage />;
+        return <AdminPage />;
       case 'test-series':    return <SimplePage title="Test Series" subtitle="Practice tests and mock exams." icon="FileText" />;
       case 'free-content':   return <SimplePage title="Free Content" subtitle="Access free study material and sample lessons." icon="BookOpen" />;
       case 'previous-papers': return <SimplePage title="Previous Year Papers" subtitle="Previous year question papers with solutions." icon="FileArchive" />;
@@ -87,9 +93,11 @@ function AppContent() {
 
 function App() {
   return (
-    <RouterProvider>
-      <AppContent />
-    </RouterProvider>
+    <AuthProvider>
+      <RouterProvider>
+        <AppContent />
+      </RouterProvider>
+    </AuthProvider>
   );
 }
 
