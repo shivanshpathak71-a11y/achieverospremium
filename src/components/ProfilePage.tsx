@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { CircleCheck as CheckCircle, Clock, Play, ChevronRight, Trash2, Award, Settings, Moon, Bell, Download, Bookmark } from 'lucide-react';
+import { CircleCheck as CheckCircle, Clock, Play, ChevronRight, Trash2, Settings, Moon, Bell, Download, Bookmark, Flame, Target, TrendingUp } from 'lucide-react';
 import { useRouter } from '../lib/router';
 import { useAllLectures, formatDuration } from '../lib/hooks';
-import { getAllProgress, getContinueWatching, clearAllProgress } from '../lib/storage';
+import { getAllProgress, getContinueWatching, clearAllProgress, getStudyStreak, getTodayStudySeconds, getDailyGoal, getTotalStudySeconds } from '../lib/storage';
 
 const FALLBACK_THUMB = 'https://images.pexels.com/photos/256541/pexels-photo-256541.jpeg?auto=compress&cs=tinysrgb&w=400';
 
@@ -25,14 +25,14 @@ export function ProfilePage() {
   return (
     <div className="max-w-5xl mx-auto px-4 pt-20 pb-24 lg:pb-12">
       <motion.div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6 mt-4 relative overflow-hidden" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-        <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-pink-100/50 blur-3xl" />
+        <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-primary-100/50 blur-3xl" />
         <div className="flex items-center gap-4 relative">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #ec4899, #f43f5e)' }}>
-            <span className="text-2xl font-bold text-white">A</span>
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0d9488, #0891b2)' }}>
+            <span className="text-2xl font-bold text-white">S</span>
           </div>
           <div className="flex-1">
-            <h1 className="font-bold text-xl text-gray-900">Achiever</h1>
-            <p className="text-sm text-gray-500">Achiever OS Student</p>
+            <h1 className="font-bold text-xl text-gray-900">Shivansh</h1>
+            <p className="text-sm text-gray-500">Income Tax Officer</p>
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold text-gray-900">{completionRate}%</p>
@@ -42,14 +42,26 @@ export function ProfilePage() {
       </motion.div>
 
       <div className="grid grid-cols-3 gap-3 mb-6">
-        <StatCard icon={<CheckCircle className="w-5 h-5 text-green-500" />} value={completedLectures.length.toString()} label="Completed" />
-        <StatCard icon={<Clock className="w-5 h-5 text-pink-500" />} value={formatDuration(totalWatchTime)} label="Watch Time" />
-        <StatCard icon={<Award className="w-5 h-5 text-amber-500" />} value={completedLectures.length.toString()} label="Certificates" />
+        <StatCard icon={<CheckCircle className="w-5 h-5 text-success-500" />} value={completedLectures.length.toString()} label="Completed" />
+        <StatCard icon={<Clock className="w-5 h-5 text-primary-500" />} value={formatDuration(totalWatchTime)} label="Watch Time" />
+        <StatCard icon={<Flame className="w-5 h-5 text-amber-500" />} value={`${getStudyStreak()}d`} label="Streak" />
+      </div>
+
+      {/* Study stats row */}
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center"><Target className="w-5 h-5 text-primary-500" /></div>
+          <div><p className="text-xs text-gray-400">Today's Goal</p><p className="font-bold text-sm text-gray-900">{Math.min(100, Math.round((getTodayStudySeconds() / getDailyGoal()) * 100))}%</p></div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center"><TrendingUp className="w-5 h-5 text-blue-500" /></div>
+          <div><p className="text-xs text-gray-400">Total Hours</p><p className="font-bold text-sm text-gray-900">{Math.round(getTotalStudySeconds() / 3600 * 10) / 10}h</p></div>
+        </div>
       </div>
 
       {continueWatching.length > 0 && (
         <section className="mb-6">
-          <h2 className="font-bold text-gray-900 text-base mb-3 flex items-center gap-2"><Play className="w-4 h-4 text-pink-500" /> Continue Learning</h2>
+          <h2 className="font-bold text-gray-900 text-base mb-3 flex items-center gap-2"><Play className="w-4 h-4 text-primary-500" /> Continue Learning</h2>
           <div className="space-y-2">
             {continueWatching.map((lecture) => {
               const prog = allProgress[lecture.id];
@@ -64,9 +76,9 @@ export function ProfilePage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-gray-900 line-clamp-2 mb-1">{lecture.title}</p>
                     <p className="text-[10px] text-gray-400 mb-1.5">{lecture.chapter?.subject?.title}</p>
-                    <div className="h-1 rounded-full bg-gray-100 overflow-hidden"><div className="h-full rounded-full bg-pink-500" style={{ width: `${pct}%` }} /></div>
+                    <div className="h-1 rounded-full bg-gray-100 overflow-hidden"><div className="h-full rounded-full bg-primary-500" style={{ width: `${pct}%` }} /></div>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-pink-500 transition-colors flex-shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-primary-500 transition-colors flex-shrink-0" />
                 </motion.button>
               );
             })}
@@ -76,11 +88,11 @@ export function ProfilePage() {
 
       {bookmarkedLectures.length > 0 && (
         <section className="mb-6">
-          <h2 className="font-bold text-gray-900 text-base mb-3 flex items-center gap-2"><Bookmark className="w-4 h-4 text-pink-500" /> Bookmarks</h2>
+          <h2 className="font-bold text-gray-900 text-base mb-3 flex items-center gap-2"><Bookmark className="w-4 h-4 text-primary-500" /> Bookmarks</h2>
           <div className="space-y-2">
             {bookmarkedLectures.map((lecture) => (
               <div key={lecture.id} className="bg-white border border-gray-200 rounded-2xl p-3 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-pink-50 flex items-center justify-center flex-shrink-0"><Bookmark className="w-4 h-4 text-pink-500 fill-pink-500" /></div>
+                <div className="w-9 h-9 rounded-lg bg-primary-50 flex items-center justify-center flex-shrink-0"><Bookmark className="w-4 h-4 text-primary-500 fill-primary-500" /></div>
                 <p className="text-sm font-medium text-gray-700 flex-1 min-w-0 truncate">{lecture.title}</p>
                 <button onClick={() => toggleBookmark(lecture.id)} className="text-xs text-gray-400 hover:text-red-500 transition-colors">Remove</button>
               </div>
@@ -90,7 +102,7 @@ export function ProfilePage() {
       )}
 
       <section className="mb-6">
-        <h2 className="font-bold text-gray-900 text-base mb-3 flex items-center gap-2"><Download className="w-4 h-4 text-pink-500" /> Downloads</h2>
+        <h2 className="font-bold text-gray-900 text-base mb-3 flex items-center gap-2"><Download className="w-4 h-4 text-primary-500" /> Downloads</h2>
         <div className="bg-white border border-gray-200 rounded-2xl p-6 text-center">
           <Download className="w-8 h-8 text-gray-300 mx-auto mb-2" />
           <p className="text-sm text-gray-400">No downloads yet. Download lessons for offline study.</p>

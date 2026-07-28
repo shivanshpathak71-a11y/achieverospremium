@@ -73,3 +73,114 @@ export function addDownload(lectureId: string) {
 export function removeDownload(lectureId: string) {
   localStorage.removeItem(PREFIX + 'downloaded_' + lectureId);
 }
+
+// ── Study tracking ──────────────────────────────────────────
+export function addStudyTime(seconds: number) {
+  const today = new Date().toISOString().split('T')[0];
+  const raw = localStorage.getItem(PREFIX + 'study_log');
+  const log: Record<string, number> = raw ? JSON.parse(raw) : {};
+  log[today] = (log[today] || 0) + seconds;
+  localStorage.setItem(PREFIX + 'study_log', JSON.stringify(log));
+}
+
+export function getStudyLog(): Record<string, number> {
+  try { return JSON.parse(localStorage.getItem(PREFIX + 'study_log') || '{}'); } catch { return {}; }
+}
+
+export function getTodayStudySeconds(): number {
+  const today = new Date().toISOString().split('T')[0];
+  return getStudyLog()[today] || 0;
+}
+
+export function getWeeklyStudySeconds(): number[] {
+  const log = getStudyLog();
+  const days: number[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    days.push(log[d.toISOString().split('T')[0]] || 0);
+  }
+  return days;
+}
+
+export function getTotalStudySeconds(): number {
+  return Object.values(getStudyLog()).reduce((a, b) => a + b, 0);
+}
+
+export function getStudyStreak(): number {
+  const log = getStudyLog();
+  let streak = 0;
+  for (let i = 0; i < 365; i++) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    if (log[d.toISOString().split('T')[0]]) streak++;
+    else if (i > 0) break;
+  }
+  return streak;
+}
+
+export function getDailyGoal(): number {
+  return parseInt(localStorage.getItem(PREFIX + 'daily_goal') || '7200');
+}
+
+export function setDailyGoal(seconds: number) {
+  localStorage.setItem(PREFIX + 'daily_goal', String(seconds));
+}
+
+export function getWatchLater(): string[] {
+  try { return JSON.parse(localStorage.getItem(PREFIX + 'watch_later') || '[]'); } catch { return []; }
+}
+
+export function toggleWatchLater(lectureId: string) {
+  const list = getWatchLater();
+  const idx = list.indexOf(lectureId);
+  if (idx >= 0) list.splice(idx, 1); else list.push(lectureId);
+  localStorage.setItem(PREFIX + 'watch_later', JSON.stringify(list));
+  return idx < 0;
+}
+
+export function getFavourites(): string[] {
+  try { return JSON.parse(localStorage.getItem(PREFIX + 'favourites') || '[]'); } catch { return []; }
+}
+
+export function toggleFavourite(lectureId: string) {
+  const list = getFavourites();
+  const idx = list.indexOf(lectureId);
+  if (idx >= 0) list.splice(idx, 1); else list.push(lectureId);
+  localStorage.setItem(PREFIX + 'favourites', JSON.stringify(list));
+  return idx < 0;
+}
+
+export function getBookmarks(lectureId: string): number[] {
+  try { return JSON.parse(localStorage.getItem(PREFIX + 'bookmarks_' + lectureId) || '[]'); } catch { return []; }
+}
+
+export function toggleBookmark(lectureId: string, timestamp: number) {
+  const list = getBookmarks(lectureId);
+  const idx = list.indexOf(timestamp);
+  if (idx >= 0) list.splice(idx, 1); else list.push(timestamp);
+  localStorage.setItem(PREFIX + 'bookmarks_' + lectureId, JSON.stringify(list));
+  return idx < 0;
+}
+
+export function getNotes(lectureId: string): { timestamp: number; text: string }[] {
+  try { return JSON.parse(localStorage.getItem(PREFIX + 'notes_' + lectureId) || '[]'); } catch { return []; }
+}
+
+export function addNote(lectureId: string, timestamp: number, text: string) {
+  const list = getNotes(lectureId);
+  list.push({ timestamp, text });
+  localStorage.setItem(PREFIX + 'notes_' + lectureId, JSON.stringify(list));
+}
+
+export function removeNote(lectureId: string, index: number) {
+  const list = getNotes(lectureId);
+  list.splice(index, 1);
+  localStorage.setItem(PREFIX + 'notes_' + lectureId, JSON.stringify(list));
+}
+
+export function getLastOpenedLectures(): { lectureId: string; updatedAt: number }[] {
+  const all = getAllProgress();
+  return Object.entries(all)
+    .map(([lectureId, v]) => ({ lectureId, updatedAt: v.updatedAt || 0 }))
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, 5);
+}

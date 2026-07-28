@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, CreditCard as Edit3, Trash2, Pin, Sparkles, BookOpen, Video, Upload, Save, Layers, FolderTree, Loader as Loader2, LogOut, Megaphone, Image } from 'lucide-react';
+import { Plus, CreditCard as Edit3, Trash2, Pin, Sparkles, BookOpen, Video, Upload, Save, Layers, FolderTree, Loader as Loader2, LogOut, Megaphone, Image, Copy } from 'lucide-react';
 import { supabase, type Subject, type Chapter, type Lecture } from '../lib/supabase';
 import { useSubjects, useChapters, useLectures, formatDuration } from '../lib/hooks';
 import * as LucideIcons from 'lucide-react';
@@ -47,7 +47,7 @@ function AdminDashboard({ onLogout, adminEmail }: { onLogout: () => void; adminE
           { id: 'banners' as Tab, label: 'Banners', icon: Image },
         ]).map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap ${tab === t.id ? 'bg-pink-500 text-white shadow-sm shadow-pink-500/20' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}`}>
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap ${tab === t.id ? 'bg-primary-600 text-white shadow-sm shadow-primary-500/20' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}`}>
             <t.icon className="w-4 h-4" /> {t.label}
           </button>
         ))}
@@ -211,6 +211,11 @@ function LecturesAdmin({ subjects, selectedSubjectId, setSelectedSubjectId, chap
   };
 
   const handleDelete = async (id: string) => { if (!confirm('Delete this lecture?')) return; await supabase.from('lectures').delete().eq('id', id); window.location.reload(); };
+  const handleDuplicate = async (l: Lecture) => {
+    const { id, created_at, updated_at, ...rest } = l;
+    await supabase.from('lectures').insert({ ...rest, title: `${l.title} (Copy)`, sort_order: (l.sort_order || 0) + 1 });
+    window.location.reload();
+  };
 
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -292,8 +297,8 @@ function LecturesAdmin({ subjects, selectedSubjectId, setSelectedSubjectId, chap
           </div>
           <Input label="Notes"><textarea className="input-field min-h-20" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Lecture notes" /></Input>
           <div className="flex gap-4">
-            <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={form.is_pinned} onChange={(e) => setForm({ ...form, is_pinned: e.target.checked })} className="accent-pink-500" /> Pinned</label>
-            <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={form.is_new} onChange={(e) => setForm({ ...form, is_new: e.target.checked })} className="accent-pink-500" /> New</label>
+            <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={form.is_pinned} onChange={(e) => setForm({ ...form, is_pinned: e.target.checked })} className="accent-primary-500" /> Pinned</label>
+            <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={form.is_new} onChange={(e) => setForm({ ...form, is_new: e.target.checked })} className="accent-primary-500" /> New</label>
           </div>
           <SaveBar onSave={handleSave} saving={saving} onCancel={() => setShowForm(false)} />
         </div>
@@ -313,9 +318,10 @@ function LecturesAdmin({ subjects, selectedSubjectId, setSelectedSubjectId, chap
                 </div>
               </div>
               <div className="flex gap-1.5 flex-shrink-0">
-                {l.is_pinned && <Pin className="w-4 h-4 text-pink-500" />}
-                {l.is_new && <span className="badge bg-pink-50 text-pink-600 border border-pink-200 text-[9px]">NEW</span>}
+                {l.is_pinned && <Pin className="w-4 h-4 text-primary-500" />}
+                {l.is_new && <span className="badge bg-primary-50 text-primary-600 border border-primary-200 text-[9px]">NEW</span>}
                 <button onClick={() => startEdit(l)} className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"><Edit3 className="w-3.5 h-3.5" /></button>
+                <button onClick={() => handleDuplicate(l)} className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-500 hover:text-primary-600 hover:bg-primary-50 transition-colors" title="Duplicate"><Copy className="w-3.5 h-3.5" /></button>
                 <button onClick={() => handleDelete(l.id)} className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
             </div>

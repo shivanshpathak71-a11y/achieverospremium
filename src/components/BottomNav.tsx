@@ -33,9 +33,9 @@ export function BottomNav() {
               <button key={tab.id} onClick={() => navigate(tab.route)}
                 className="relative flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all duration-200"
                 aria-label={tab.label} aria-current={active ? 'page' : undefined}>
-                {active && <motion.span className="absolute inset-0 rounded-xl bg-pink-50" layoutId="bottomNavActive" />}
-                <Icon className={`relative w-5 h-5 transition-colors duration-200 ${active ? 'text-pink-500' : 'text-gray-400'}`} strokeWidth={active ? 2.5 : 2} />
-                <span className={`relative text-[10px] font-medium transition-colors duration-200 ${active ? 'text-pink-500' : 'text-gray-400'}`}>{tab.label}</span>
+                {active && <motion.span className="absolute inset-0 rounded-xl bg-primary-50" layoutId="bottomNavActive" />}
+                <Icon className={`relative w-5 h-5 transition-colors duration-200 ${active ? 'text-primary-600' : 'text-gray-400'}`} strokeWidth={active ? 2.5 : 2} />
+                <span className={`relative text-[10px] font-medium transition-colors duration-200 ${active ? 'text-primary-600' : 'text-gray-400'}`}>{tab.label}</span>
               </button>
             );
           })}

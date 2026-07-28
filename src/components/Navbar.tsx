@@ -37,11 +37,11 @@ export function Navbar() {
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-xl border-b border-gray-200 shadow-sm' : 'bg-white/60 backdrop-blur-md'}`}>
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-        <button onClick={() => navigate({ name: 'home' })} className="flex items-center gap-2.5 flex-shrink-0" aria-label="Achiever OS home">
+        <button onClick={() => navigate({ name: 'home' })} className="flex items-center gap-2.5 flex-shrink-0" aria-label="Shivansh home">
           <AchieverLogo size={36} />
           <div className="text-left hidden sm:block">
-            <div className="font-bold text-sm text-gray-800 leading-none">Achiever <span className="gradient-text">OS</span></div>
-            <div className="text-[9px] text-gray-400 leading-none mt-0.5">Learn. Grow. Achieve.</div>
+            <div className="font-bold text-sm text-gray-800 leading-none">Shivansh</div>
+            <div className="text-[9px] text-gray-400 leading-none mt-0.5">Income Tax Officer</div>
           </div>
         </button>
 
@@ -50,7 +50,7 @@ export function Navbar() {
             const active = isActive(item.label);
             return (
               <button key={item.label} onClick={() => navigate(item.route)}
-                className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${active ? 'text-pink-600 bg-pink-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`}>
+                className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${active ? 'text-primary-700 bg-primary-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`}>
                 {item.label}
               </button>
             );
@@ -63,11 +63,11 @@ export function Navbar() {
           </button>
           <button className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all relative" aria-label="Notifications">
             <Bell className="w-[18px] h-[18px]" />
-            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-pink-500" />
+            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary-500" />
           </button>
-          <button onClick={() => navigate({ name: 'profile' })} className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold ml-1" style={{ background: 'linear-gradient(135deg, #ec4899, #f43f5e)' }} aria-label="Profile">A</button>
+          <button onClick={() => navigate({ name: 'profile' })} className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold ml-1 transition-transform hover:scale-105" style={{ background: 'linear-gradient(135deg, #0d9488, #0891b2)' }} aria-label="Profile">S</button>
           {isAdmin && (
-            <button onClick={() => navigate({ name: 'admin' })} className="w-9 h-9 rounded-lg flex items-center justify-center text-pink-600 hover:bg-pink-50 transition-all" aria-label="Admin Dashboard">
+            <button onClick={() => navigate({ name: 'admin' })} className="w-9 h-9 rounded-lg flex items-center justify-center text-primary-600 hover:bg-primary-50 transition-all" aria-label="Admin Dashboard">
               <Shield className="w-[18px] h-[18px]" />
             </button>
           )}
