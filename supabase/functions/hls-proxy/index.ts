@@ -45,7 +45,6 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Forward Range header for byte-range requests (hls.js uses these)
     const upstreamHeaders: Record<string, string> = {
       "User-Agent": "Mozilla/5.0 (compatible; HLSCoordinator/1.0)",
       "Accept": "*/*",
@@ -59,7 +58,8 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!upstream.ok && upstream.status !== 206) {
-      return new Response(`Upstream error: ${upstream.status}`, {
+      const body = await upstream.text().catch(() => "");
+      return new Response(`Upstream error: ${upstream.status}\n${body.slice(0, 500)}`, {
         status: upstream.status,
         headers: { ...corsHeaders, "Content-Type": "text/plain" },
       });
@@ -88,9 +88,11 @@ Deno.serve(async (req: Request) => {
       "Cache-Control": "public, max-age=3600",
     };
     if (upstream.status === 206) {
-      responseHeaders["Content-Range"] = upstream.headers.get("content-range") || "";
+      const cr = upstream.headers.get("content-range");
+      const cl = upstream.headers.get("content-length");
+      if (cr) responseHeaders["Content-Range"] = cr;
+      if (cl) responseHeaders["Content-Length"] = cl;
       responseHeaders["Accept-Ranges"] = "bytes";
-      responseHeaders["Content-Length"] = upstream.headers.get("content-length") || "";
     }
     const body = await upstream.arrayBuffer();
     return new Response(body, {

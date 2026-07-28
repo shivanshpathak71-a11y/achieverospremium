@@ -64,16 +64,37 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
       : lecture.video_url;
     if (isHls) {
       if (Hls.isSupported()) {
-        const hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
+          liveDurationInfinity: false,
+          manifestLoadingTimeOut: 15000,
+          manifestLoadingMaxRetry: 4,
+          levelLoadingTimeOut: 10000,
+          fragLoadingTimeOut: 20000,
+          fragLoadingMaxRetry: 6,
+          fragLoadingRetryDelay: 500,
+        });
         hlsRef.current = hls;
         hls.loadSource(streamUrl);
         hls.attachMedia(v);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          v.play().catch(() => { /* autoplay blocked, user must tap */ });
+        });
         hls.on(Hls.Events.ERROR, (_event, data) => {
+          console.error('[HLS]', data.type, data.details, data.fatal ? 'FATAL' : '', data.response?.code || '');
           if (data.fatal) {
             switch (data.type) {
-              case Hls.ErrorTypes.NETWORK_ERROR: hls.startLoad(); break;
-              case Hls.ErrorTypes.MEDIA_ERROR: hls.recoverMediaError(); break;
-              default: hls.destroy(); hlsRef.current = null; break;
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                hls.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                hls.recoverMediaError();
+                break;
+              default:
+                hls.destroy();
+                hlsRef.current = null;
+                break;
             }
           }
         });
@@ -81,6 +102,7 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
       }
       // Native HLS support (Safari/iOS) — set src directly
       v.src = streamUrl;
+      v.play().catch(() => { /* autoplay blocked */ });
     } else {
       // Plain MP4 — browser handles it via the src attribute
       v.src = lecture.video_url;
