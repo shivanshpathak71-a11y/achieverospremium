@@ -1,6 +1,6 @@
 // sync-steno-pitman: syncs Pitman Blueprint course from Steno School (ClassX/AppX platform)
-// Logs in with stored credentials, fetches course metadata + free/demo content,
-// and upserts into subjects/chapters/lectures. Content is kept separate from Selection Batch.
+// Uses folder_contentsv3 API to recursively fetch the full folder tree (folder-wise course).
+// Content is kept separate from Selection Batch (different source_batch_id).
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const corsHeaders = {
@@ -31,15 +31,14 @@ function extractNextData(html: string): any | null {
   }
 }
 
-// Login to Steno School API and get auth token + user ID
 async function login(
   apiBase: string,
-  email: string,
+  emailOrPhone: string,
   password: string,
 ): Promise<{ token: string; userId: string } | null> {
   const formData = new FormData();
   formData.append("source", "website");
-  formData.append("email", email);
+  formData.append("email", emailOrPhone);
   formData.append("password", password);
 
   const res = await fetch(`${apiBase}/post/userLogin?extra_details=1`, {
@@ -62,7 +61,6 @@ async function login(
   };
 }
 
-// Fetch course metadata from SSR page (no auth needed)
 async function fetchCourseMetadata(courseId: string): Promise<any | null> {
   const res = await fetch(`${SSR_BASE}/new-courses/${courseId}`, {
     headers: { "User-Agent": "Mozilla/5.0" },
@@ -74,41 +72,169 @@ async function fetchCourseMetadata(courseId: string): Promise<any | null> {
   return nextData.props?.pageProps?.course || null;
 }
 
-// Fetch free/demo content from the API (requires auth)
-async function fetchFreeContent(
+// Recursively fetch folder contents using the folder_contentsv3 API
+async function fetchFolderContents(
   apiBase: string,
   courseId: string,
+  parentId: string,
   token: string,
   userId: string,
 ): Promise<any[]> {
-  const allItems: any[] = [];
-  let start = 0;
-  const pageSize = 50;
+  const url = `${apiBase}/get/folder_contentsv3?course_id=${courseId}&parent_id=${parentId}&windowsapp=0&start=0`;
+  const res = await fetch(url, {
+    headers: {
+      "Client-Service": "Appx",
+      "Auth-Key": "appxapi",
+      "source": "website",
+      "Authorization": token,
+      "User-ID": userId,
+    },
+  });
 
-  while (true) {
-    const res = await fetch(
-      `${apiBase}/get/course_class_freecontentv2?courseid=${courseId}&start=${start}&folder_wise_course=1`,
-      {
-        headers: {
-          "Client-Service": "Appx",
-          "Auth-Key": "appxapi",
-          "source": "website",
-          "Authorization": token,
-          "User-ID": userId,
-        },
-      },
-    );
+  if (!res.ok) return [];
+  const data = await res.json();
+  if (!data.data || !Array.isArray(data.data)) return [];
 
-    if (!res.ok) break;
-    const data = await res.json();
-    if (data.status !== 200 || !Array.isArray(data.data)) break;
-
-    allItems.push(...data.data);
-    if (data.data.length < pageSize) break;
-    start += pageSize;
+  // For each FOLDER item, recursively fetch its contents
+  const results = [...data.data];
+  for (const item of data.data) {
+    const itemType = item.material_type || item.type || "";
+    if (itemType === "FOLDER") {
+      const subItems = await fetchFolderContents(
+        apiBase, courseId, String(item.id), token, userId,
+      );
+      item._children = subItems;
+    }
   }
 
-  return allItems;
+  return results;
+}
+
+// Flatten the folder tree into chapters (folders) and lectures (videos/pdfs)
+function flattenTree(
+  items: any[],
+  subjectId: string,
+  parentFolderTitle: string = "",
+): { chapters: any[]; lectures: any[] } {
+  const chapters: any[] = [];
+  const lectures: any[] = [];
+  let chapterSort = 0;
+
+  for (const item of items) {
+    const itemType = item.material_type || item.type || "";
+    const itemId = String(item.id);
+    const title = item.Title || item.title || item.name || `Item ${itemId}`;
+
+    if (itemType === "FOLDER") {
+      // Create a chapter for this folder
+      const chapterSlug = slugify(title) + "-" + itemId.slice(-6);
+      const chapter = {
+        subject_id: subjectId,
+        slug: chapterSlug,
+        title: title,
+        sort_order: chapterSort++,
+        source_topic_id: itemId,
+      };
+      chapters.push(chapter);
+
+      // Process children - videos/PDFs become lectures, sub-folders become lectures too
+      const children = item._children || [];
+      let lectureSort = 0;
+      for (const child of children) {
+        const childType = child.material_type || child.type || "";
+        const childId = String(child.id);
+        const childTitle = child.Title || child.title || child.name || `Item ${childId}`;
+        const lectureSlug = slugify(childTitle) + "-" + childId.slice(-6);
+
+        // Collect video and PDF URLs
+        const videoUrls: string[] = [];
+        if (child.video_player_url) videoUrls.push(child.video_player_url);
+        if (child.download_url_higher_version) videoUrls.push(child.download_url_higher_version);
+        if (child.download_link) videoUrls.push(child.download_link);
+        if (child.file_link) videoUrls.push(child.file_link);
+
+        const pdfUrls: string[] = [];
+        if (child.pdf_link) pdfUrls.push(child.pdf_link);
+        if (child.pdf_link2) pdfUrls.push(child.pdf_link2);
+        if (child.study_material_link) pdfUrls.push(child.study_material_link);
+
+        const durationStr = child.duration_in_secs || "0";
+        const durationSeconds = parseInt(durationStr) || 0;
+
+        let startDate: string | null = null;
+        if (child.event_date) startDate = child.event_date;
+
+        const isVideo = childType === "VIDEO" || childType === "VIDEO";
+        const isPdf = childType === "PDF";
+
+        const lecture = {
+          chapter_source_topic_id: itemId,
+          slug: lectureSlug,
+          title: childTitle,
+          description: child.description || null,
+          video_url: isVideo ? (videoUrls[0] || null) : null,
+          pdf_url: pdfUrls[0] || null,
+          pdf_urls: pdfUrls.length > 0 ? pdfUrls : null,
+          source_video_urls: videoUrls.length > 0 ? videoUrls : null,
+          source_class_id: childId,
+          is_live: child.live_status === 1 || false,
+          is_free: child.free_flag === 1 || false,
+          start_date: startDate,
+          duration_seconds: durationSeconds,
+          teacher_name: null,
+          sort_order: lectureSort++,
+          is_pdf: isPdf,
+        };
+        lectures.push(lecture);
+
+        // If this child is also a folder, recursively flatten its children as lectures
+        if (childType === "FOLDER" && child._children) {
+          for (const subchild of child._children) {
+            const subType = subchild.material_type || subchild.type || "";
+            const subId = String(subchild.id);
+            const subTitle = subchild.Title || subchild.title || subchild.name || `Item ${subId}`;
+            const subSlug = slugify(subTitle) + "-" + subId.slice(-6);
+
+            const subVideoUrls: string[] = [];
+            if (subchild.video_player_url) subVideoUrls.push(subchild.video_player_url);
+            if (subchild.download_url_higher_version) subVideoUrls.push(subchild.download_url_higher_version);
+            if (subchild.download_link) subVideoUrls.push(subchild.download_link);
+            if (subchild.file_link) subVideoUrls.push(subchild.file_link);
+
+            const subPdfUrls: string[] = [];
+            if (subchild.pdf_link) subPdfUrls.push(subchild.pdf_link);
+            if (subchild.pdf_link2) subPdfUrls.push(subchild.pdf_link2);
+            if (subchild.study_material_link) subPdfUrls.push(subchild.study_material_link);
+
+            const subDuration = parseInt(subchild.duration_in_secs || "0") || 0;
+            const subIsVideo = subType === "VIDEO";
+            const subIsPdf = subType === "PDF";
+
+            lectures.push({
+              chapter_source_topic_id: itemId,
+              slug: subSlug,
+              title: subTitle,
+              description: subchild.description || null,
+              video_url: subIsVideo ? (subVideoUrls[0] || null) : null,
+              pdf_url: subPdfUrls[0] || null,
+              pdf_urls: subPdfUrls.length > 0 ? subPdfUrls : null,
+              source_video_urls: subVideoUrls.length > 0 ? subVideoUrls : null,
+              source_class_id: subId,
+              is_live: subchild.live_status === 1 || false,
+              is_free: subchild.free_flag === 1 || false,
+              start_date: subchild.event_date || null,
+              duration_seconds: subDuration,
+              teacher_name: null,
+              sort_order: lectureSort++,
+              is_pdf: subIsPdf,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return { chapters, lectures };
 }
 
 Deno.serve(async (req: Request) => {
@@ -122,7 +248,7 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // 1. Read credentials from the database
+    // 1. Read credentials
     const { data: credRow } = await supabase
       .from("sync_credentials")
       .select("*")
@@ -130,28 +256,36 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     if (!credRow) {
-      throw new Error("Steno School credentials not found in sync_credentials table");
+      throw new Error("Steno School credentials not found");
     }
 
     const apiBase = credRow.api_base;
     const courseId = credRow.course_id;
 
-    // 2. Login to get a fresh auth token
+    // 2. Login
     const auth = await login(apiBase, credRow.email, credRow.password);
     if (!auth) {
       throw new Error("Failed to login to Steno School API");
     }
 
-    // 3. Fetch course metadata from SSR page
+    // 3. Fetch course metadata from SSR
     const course = await fetchCourseMetadata(courseId);
     if (!course) {
-      throw new Error("Failed to fetch course metadata from SSR page");
+      throw new Error("Failed to fetch course metadata");
     }
 
-    // 4. Fetch free/demo content
-    const freeContent = await fetchFreeContent(apiBase, courseId, auth.token, auth.userId);
+    // 4. Fetch full folder tree recursively
+    const rootItems = await fetchFolderContents(
+      apiBase, courseId, "-1", auth.token, auth.userId,
+    );
 
-    // 5. Upsert main subject (separate from Selection Batch - different source_batch_id)
+    // The root has a "Home" folder (id=11). Get its contents.
+    let topLevelItems = rootItems;
+    if (rootItems.length === 1 && (rootItems[0].material_type || rootItems[0].type) === "FOLDER") {
+      topLevelItems = rootItems[0]._children || [];
+    }
+
+    // 5. Upsert main subject
     const subjectSlug = "steno-pitman-blueprint";
     const courseEnrichment = {
       title: course.course_name || "Pitman Blueprint (Basic to Advance Steno)",
@@ -204,164 +338,67 @@ Deno.serve(async (req: Request) => {
       subjectId = newSubject.id;
     }
 
-    // 6. Create chapters from free content, grouped by parent_id (folder)
-    // The free content items have parent_id which represents the folder ID.
-    // We'll group items by parent_id and create a chapter for each folder.
-    const folderMap = new Map<string, any[]>();
-    for (const item of freeContent) {
-      const parentId = String(item.parent_id || "root");
-      if (!folderMap.has(parentId)) {
-        folderMap.set(parentId, []);
-      }
-      folderMap.get(parentId)!.push(item);
-    }
-
-    // Fetch existing chapters for this subject
-    const { data: existingChapters } = await supabase
+    // 6. Delete old chapters/lectures and recreate from fresh tree
+    // (Clean sync approach - avoids stale data from previous syncs)
+    const { data: oldChapters } = await supabase
       .from("chapters")
-      .select("id, source_topic_id, slug, sort_order")
+      .select("id")
       .eq("subject_id", subjectId);
 
-    const chapterMap = new Map<string, string>();
-    for (const ch of existingChapters || []) {
-      if (ch.source_topic_id) chapterMap.set(ch.source_topic_id, ch.id);
+    if (oldChapters && oldChapters.length > 0) {
+      const oldChapterIds = oldChapters.map((c) => c.id);
+      await supabase.from("lectures").delete().in("chapter_id", oldChapterIds);
+      await supabase.from("chapters").delete().in("id", oldChapterIds);
     }
 
-    const chapterIds = (existingChapters || []).map((c) => c.id);
-    let existingLectures: any[] | null = null;
-    if (chapterIds.length > 0) {
-      const { data: lecData } = await supabase
-        .from("lectures")
-        .select("id, source_class_id, slug, sort_order")
-        .in("chapter_id", chapterIds);
-      existingLectures = lecData;
+    // 7. Flatten the tree into chapters and lectures
+    const { chapters, lectures } = flattenTree(topLevelItems, subjectId);
+
+    // 8. Insert chapters
+    let newChapters = 0;
+    const chapterIdMap = new Map<string, string>();
+    for (const ch of chapters) {
+      const { data: newCh, error } = await supabase
+        .from("chapters")
+        .insert(ch)
+        .select("id")
+        .single();
+      if (!error && newCh) {
+        chapterIdMap.set(ch.source_topic_id, newCh.id);
+        newChapters++;
+      }
     }
 
-    const lectureMap = new Map<string, string>();
-    for (const lec of existingLectures || []) {
-      if (lec.source_class_id) lectureMap.set(lec.source_class_id, lec.id);
-    }
-
+    // 9. Insert lectures
     let newLectures = 0;
-    let updatedLectures = 0;
+    for (const lec of lectures) {
+      const chapterId = chapterIdMap.get(lec.chapter_source_topic_id);
+      if (!chapterId) continue;
 
-    // Create chapters and lectures from free content
-    let chapterSort = 0;
-    for (const [folderId, items] of folderMap) {
-      // Map folder IDs to descriptive names based on course structure
-      const folderNames: Record<string, string> = {
-        "34": "Phase 1 - Basic Shorthand",
-        "3923": "Stenonthon Sessions",
-        "23": "Phase 2 - Speed Batch",
-      };
-      const firstItem = items[0];
-      const folderName = firstItem?.section_name || folderNames[folderId] || `Folder ${folderId}`;
-      const chapterSlug = slugify(folderName) + "-" + folderId.slice(-6);
-
-      let chapterId: string;
-      if (chapterMap.has(folderId)) {
-        chapterId = chapterMap.get(folderId)!;
-        await supabase.from("chapters").update({
-          subject_id: subjectId,
-          slug: chapterSlug,
-          title: folderName,
-          sort_order: chapterSort,
-          source_topic_id: folderId,
-          updated_at: new Date().toISOString(),
-        }).eq("id", chapterId);
-      } else {
-        const { data: newCh, error: chErr } = await supabase
-          .from("chapters")
-          .insert({
-            subject_id: subjectId,
-            slug: chapterSlug,
-            title: folderName,
-            sort_order: chapterSort,
-            source_topic_id: folderId,
-          })
-          .select("id")
-          .single();
-        if (chErr) {
-          console.warn(`Chapter insert failed: ${chErr.message}`);
-          continue;
-        }
-        chapterId = newCh.id;
-        chapterMap.set(folderId, chapterId);
-      }
-      chapterSort++;
-
-      // Create lectures for this chapter
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const classId = String(item.id);
-        const lectureSlug = slugify(item.Title || `Class ${i + 1}`) + "-" + classId.slice(-6);
-
-        // Parse duration
-        const durationStr = item.duration_in_secs || "0";
-        const durationSeconds = parseInt(durationStr) || 0;
-
-        // Parse date
-        let startDate: string | null = null;
-        if (item.event_date) {
-          startDate = item.event_date;
-        }
-
-        // Collect video URLs (from player URLs)
-        const videoUrls: string[] = [];
-        if (item.video_player_url) {
-          videoUrls.push(item.video_player_url);
-        }
-        if (item.download_url_higher_version) {
-          videoUrls.push(item.download_url_higher_version);
-        }
-
-        // Collect PDF URLs
-        const pdfUrls: string[] = [];
-        if (item.pdf_link) {
-          pdfUrls.push(item.pdf_link);
-        }
-        if (item.pdf_link2) {
-          pdfUrls.push(item.pdf_link2);
-        }
-        if (item.study_material_link) {
-          pdfUrls.push(item.study_material_link);
-        }
-
-        const lectureData = {
-          title: item.Title || `Class ${i + 1}`,
-          description: item.description || null,
-          video_url: videoUrls[0] || null,
-          pdf_url: pdfUrls[0] || null,
-          pdf_urls: pdfUrls.length > 0 ? pdfUrls : null,
-          source_video_urls: videoUrls.length > 0 ? videoUrls : null,
-          source_class_id: classId,
-          is_live: item.live_status === 1 || false,
-          is_free: item.free_flag === 1 || false,
-          start_date: startDate,
-          duration_seconds: durationSeconds,
-          teacher_name: null,
-          sort_order: i,
-          updated_at: new Date().toISOString(),
-        };
-
-        if (lectureMap.has(classId)) {
-          await supabase.from("lectures").update(lectureData).eq("id", lectureMap.get(classId));
-          updatedLectures++;
-        } else {
-          await supabase.from("lectures").insert({
-            chapter_id: chapterId,
-            slug: lectureSlug,
-            ...lectureData,
-            is_new: true,
-            is_pinned: i === 0,
-            watch_count: 0,
-          });
-          newLectures++;
-        }
-      }
+      const { error } = await supabase.from("lectures").insert({
+        chapter_id: chapterId,
+        slug: lec.slug,
+        title: lec.title,
+        description: lec.description,
+        video_url: lec.video_url,
+        pdf_url: lec.pdf_url,
+        pdf_urls: lec.pdf_urls,
+        source_video_urls: lec.source_video_urls,
+        source_class_id: lec.source_class_id,
+        is_live: lec.is_live,
+        is_free: lec.is_free,
+        start_date: lec.start_date,
+        duration_seconds: lec.duration_seconds,
+        teacher_name: lec.teacher_name,
+        sort_order: lec.sort_order,
+        is_new: false,
+        is_pinned: lec.sort_order === 0,
+        watch_count: 0,
+      });
+      if (!error) newLectures++;
     }
 
-    // 7. Fix stale is_live flags
+    // 10. Fix stale is_live flags
     await supabase.from("lectures")
       .update({ is_live: false, updated_at: new Date().toISOString() })
       .eq("is_live", true)
@@ -372,10 +409,9 @@ Deno.serve(async (req: Request) => {
         success: true,
         subject: course.course_name,
         courseId,
-        freeContentItems: freeContent.length,
-        folders: folderMap.size,
+        topFolders: topLevelItems.length,
+        newChapters,
         newLectures,
-        updatedLectures,
         syncedAt: new Date().toISOString(),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
