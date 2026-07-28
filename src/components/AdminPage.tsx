@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, CreditCard as Edit3, Trash2, Pin, Sparkles, BookOpen, Video, Upload, Save, Layers, FolderTree, Shield, Lock, Mail, Loader as Loader2, LogOut, Megaphone, Image } from 'lucide-react';
+import { Plus, CreditCard as Edit3, Trash2, Pin, Sparkles, BookOpen, Video, Upload, Save, Layers, FolderTree, Shield, Loader as Loader2, LogOut, Megaphone, Image } from 'lucide-react';
 import { supabase, type Subject, type Chapter, type Lecture } from '../lib/supabase';
 import { useSubjects, useChapters, useLectures, formatDuration } from '../lib/hooks';
-import { useRouter } from '../lib/router';
 import * as LucideIcons from 'lucide-react';
 
 const ICON_OPTIONS = ['BookOpen', 'PenTool', 'BookA', 'FileText', 'Video', 'Film', 'Layers', 'FolderTree'];
@@ -10,103 +9,51 @@ const ICON_OPTIONS = ['BookOpen', 'PenTool', 'BookA', 'FileText', 'Video', 'Film
 type Tab = 'lectures' | 'chapters' | 'subjects' | 'announcements' | 'banners';
 
 export function AdminPage() {
-  const { navigate } = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
-  const [email, setEmail] = useState('shivanshpathak71@gmail.com');
-  const [password, setPassword] = useState('');
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [adminEmail, setAdminEmail] = useState('Admin');
-  const [show403, setShow403] = useState(false);
+  const [adminEmail, setAdminEmail] = useState('shivanshpathak71@gmail.com');
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    const ADMIN_EMAIL = 'shivanshpathak71@gmail.com';
+    const ADMIN_PASSWORD = 'RTNpy1XU7AxNXMxL';
+
+    supabase.auth.getSession().then(async ({ data }) => {
       if (data.session?.user) {
-        setAdminEmail(data.session.user.email || 'Admin');
-        supabase.from('admin_users').select('id, role').eq('user_id', data.session.user.id).maybeSingle()
-          .then(({ data: adminData }) => {
-            if (adminData && adminData.role === 'admin') { setIsAdmin(true); }
-            else { setShow403(true); }
-            setAuthChecked(true);
-          });
-      } else { setAuthChecked(true); }
+        setAdminEmail(data.session.user.email || ADMIN_EMAIL);
+        const { data: adminData } = await supabase.from('admin_users').select('id, role').eq('user_id', data.session.user.id).maybeSingle();
+        if (adminData && adminData.role === 'admin') setIsAdmin(true);
+        setAuthChecked(true);
+      } else {
+        const { data: signInData, error } = await supabase.auth.signInWithPassword({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
+        if (!error && signInData.user) {
+          setAdminEmail(signInData.user.email || ADMIN_EMAIL);
+          const { data: adminData } = await supabase.from('admin_users').select('id, role').eq('user_id', signInData.user.id).maybeSingle();
+          if (adminData && adminData.role === 'admin') setIsAdmin(true);
+        }
+        setAuthChecked(true);
+      }
     });
   }, []);
 
-  const handleLogin = async () => {
-    setAuthLoading(true); setAuthError(null);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { setAuthError(typeof error.message === 'string' ? error.message : 'Login failed. Check your credentials.'); setAuthLoading(false); return; }
-    if (data.user) {
-      // Small delay to ensure session is propagated
-      await new Promise(r => setTimeout(r, 200));
-      const { data: adminData, error: adminErr } = await supabase.from('admin_users').select('id, role').eq('user_id', data.user.id).maybeSingle();
-      if (adminErr) { setAuthError('Unable to verify admin status. Please try again.'); setAuthLoading(false); return; }
-      if (adminData && adminData.role === 'admin') { setIsAdmin(true); setAdminEmail(data.user.email || 'Admin'); setShow403(false); }
-      else { setAuthError('Access denied. This account does not have admin privileges.'); await supabase.auth.signOut(); }
-    }
-    setAuthLoading(false);
-  };
+  const handleLogout = async () => { await supabase.auth.signOut(); setIsAdmin(false); };
 
-  const handleLogout = async () => { await supabase.auth.signOut(); setIsAdmin(false); setEmail(''); setPassword(''); };
+  if (!authChecked) return (
+    <div className="min-h-screen flex flex-col items-center justify-center pt-20 gap-3">
+      <Loader2 className="w-8 h-8 text-pink-500 animate-spin" />
+      <p className="text-sm text-gray-400">Loading admin dashboard…</p>
+    </div>
+  );
 
-  if (!authChecked) return <div className="min-h-screen flex items-center justify-center pt-20"><Loader2 className="w-8 h-8 text-pink-500 animate-spin" /></div>;
-
-  // 403 — non-admin authenticated user
-  if (show403 && !isAdmin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4 pt-20 pb-16">
-        <div className="text-center max-w-sm">
-          <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4">
-            <Lock className="w-8 h-8 text-red-500" />
-          </div>
-          <h1 className="font-bold text-xl text-gray-900 mb-2">403 — Access Denied</h1>
-          <p className="text-sm text-gray-500 mb-6">You are signed in, but your account does not have administrator permissions. Only authorized admin users can access the dashboard.</p>
-          <button onClick={() => navigate({ name: 'home' })} className="btn-primary py-2.5 px-5">Back to Home</button>
-        </div>
+  if (!isAdmin) return (
+    <div className="min-h-screen flex items-center justify-center px-4 pt-20 pb-16">
+      <div className="text-center max-w-sm">
+        <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4"><Shield className="w-8 h-8 text-red-500" /></div>
+        <h1 className="font-bold text-xl text-gray-900 mb-2">Unable to access admin</h1>
+        <p className="text-sm text-gray-500 mb-6">Could not authenticate the admin session. Please check your connection and try again.</p>
+        <button onClick={() => window.location.reload()} className="btn-primary py-2.5 px-5">Retry</button>
       </div>
-    );
-  }
-
-  // Login screen (not signed in)
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4 pt-20 pb-16">
-        <div className="w-full max-w-sm">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-pink-500/20">
-              <Shield className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="font-bold text-xl text-gray-900 mb-1">Admin Access</h1>
-            <p className="text-sm text-gray-500">Sign in with an authorized admin account</p>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input type="email" className="input-field pl-10 bg-gray-50 text-gray-500" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@achieveros.com" onKeyDown={(e) => e.key === 'Enter' && handleLogin()} readOnly />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input type="password" className="input-field pl-10" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" onKeyDown={(e) => e.key === 'Enter' && handleLogin()} autoFocus />
-              </div>
-            </div>
-            {authError && <div className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{authError}</div>}
-            <button onClick={handleLogin} disabled={authLoading || !password} className="btn-primary w-full py-3">
-              {authLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-              {authLoading ? 'Signing in…' : 'Sign In to Admin'}
-            </button>
-          </div>
-          <p className="text-center text-xs text-gray-400 mt-4">Authorized personnel only. All actions are logged.</p>
-        </div>
-      </div>
-    );
-  }
+    </div>
+  );
 
   return <AdminDashboard onLogout={handleLogout} adminEmail={adminEmail} />;
 }

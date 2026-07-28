@@ -38,8 +38,8 @@ export function SimplePage({ title, subtitle, icon }: { title: string; subtitle:
                 <Shield className="w-5 h-5 text-gray-500 group-hover:text-pink-500 transition-colors" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-gray-900">Admin Login</p>
-                <p className="text-xs text-gray-400">Sign in with an authorized admin account</p>
+                <p className="text-sm font-semibold text-gray-900">Admin Panel</p>
+                <p className="text-xs text-gray-400">Manage courses, lectures, and content</p>
               </div>
               <LogIn className="w-4 h-4 text-gray-300 group-hover:text-pink-500 transition-colors" />
             </button>
