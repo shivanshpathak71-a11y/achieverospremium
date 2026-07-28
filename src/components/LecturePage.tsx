@@ -135,6 +135,7 @@ export function LecturePage({ subjectSlug, chapterSlug, lectureId }: { subjectSl
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400">
                         <span className="flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" /> {formatDuration(lec.duration_seconds)}</span>
+                        {lec.is_live && lec.start_date && <span className="text-rose-500 font-medium">{new Date(lec.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
                         {(lec.pdf_urls || (lec.pdf_url ? [lec.pdf_url] : [])).length > 0 && <span className="flex items-center gap-0.5 text-primary-500"><FileText className="w-2.5 h-2.5" /> PDF</span>}
                         {isDownloadedFlag && <span className="flex items-center gap-0.5 text-success-500"><Download className="w-2.5 h-2.5" /> Saved</span>}
                       </div>

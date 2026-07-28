@@ -140,7 +140,10 @@ export function HomePage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-gray-900 line-clamp-2">{lec.title}</p>
                       <p className="text-[10px] text-gray-400 line-clamp-1">{ch?.subject?.title} · {ch?.title}</p>
-                      <p className="text-[10px] text-red-500 font-medium mt-0.5">{lec.teacher_name || 'Live Class'}</p>
+                      <p className="text-[10px] text-red-500 font-medium mt-0.5">
+                        {lec.teacher_name || 'Live Class'}
+                        {lec.start_date && <span className="text-gray-400 ml-1">· {new Date(lec.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+                      </p>
                     </div>
                   </button>
                 );

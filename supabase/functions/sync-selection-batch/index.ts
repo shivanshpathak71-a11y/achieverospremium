@@ -48,13 +48,49 @@ Deno.serve(async (req: Request) => {
     const classesData = await classesRes.json();
     const topics = classesData.data.classes;
 
-    // 3. Upsert subject with all course-level enrichment fields
+    // 3. Upsert main subject (container) with all course-level enrichment fields
     const subjectSlug = "selection-batch-10";
     const { data: subjectRow } = await supabase
       .from("subjects")
       .select("id")
-      .eq("source_batch_id", SOURCE_BATCH_ID)
+      .eq("slug", subjectSlug)
       .maybeSingle();
+
+    // Ensure the 4 sub-subjects exist
+    const SUB_SUBJECTS = [
+      { slug: "selection-english", title: "English", icon: "BookOpen", color: "#3b82f6", gradient: "from-blue-500 to-cyan-500", sort_order: 1 },
+      { slug: "selection-mathematics", title: "Mathematics", icon: "Calculator", color: "#14b8a6", gradient: "from-teal-500 to-cyan-500", sort_order: 2 },
+      { slug: "selection-gk", title: "General Knowledge", icon: "Globe", color: "#f59e0b", gradient: "from-amber-500 to-orange-500", sort_order: 3 },
+      { slug: "selection-reasoning", title: "Reasoning", icon: "Brain", color: "#8b5cf6", gradient: "from-violet-500 to-purple-500", sort_order: 4 },
+    ];
+    const subSubjectIds: Record<string, string> = {};
+    for (const ss of SUB_SUBJECTS) {
+      const { data: existing } = await supabase.from("subjects").select("id").eq("slug", ss.slug).maybeSingle();
+      if (existing) {
+        subSubjectIds[ss.slug] = existing.id;
+      } else {
+        const { data: created, error } = await supabase.from("subjects").insert({
+          slug: ss.slug, icon: ss.icon, color: ss.color, gradient: ss.gradient,
+          sort_order: ss.sort_order, source_batch_id: SOURCE_BATCH_ID, title: ss.title,
+        }).select("id").single();
+        if (!error && created) subSubjectIds[ss.slug] = created.id;
+      }
+    }
+
+    // Map topic names to sub-subjects for chapter assignment
+    const ENGLISH_TOPICS = ["grammar", "misc. grammar practice", "vocab", "pqrs/ct/rc"];
+    const MATH_TOPICS = ["advance", "arithmetic", "number system and more"];
+    const GK_TOPICS = ["economics", "chemistry", "biology", "science practice"];
+    const REASONING_TOPICS = ["verbal"];
+
+    function getSubSubjectForTopic(topicName: string): string | null {
+      const lower = topicName.toLowerCase().trim();
+      if (ENGLISH_TOPICS.some(t => lower.includes(t))) return subSubjectIds["selection-english"];
+      if (MATH_TOPICS.some(t => lower.includes(t))) return subSubjectIds["selection-mathematics"];
+      if (GK_TOPICS.some(t => lower.includes(t))) return subSubjectIds["selection-gk"];
+      if (REASONING_TOPICS.some(t => lower.includes(t))) return subSubjectIds["selection-reasoning"];
+      return null;
+    }
 
     const courseEnrichment = {
       title: course.title,
@@ -135,10 +171,11 @@ Deno.serve(async (req: Request) => {
       const topicId = topic.topicId;
       const chapterSlug = slugify(topic.topicName) + "-" + topicId.slice(-6);
 
+      const targetSubjectId = getSubSubjectForTopic(topic.topicName) || subjectId;
       if (chapterMap.has(topicId)) {
         chapterUpserts.push({
           id: chapterMap.get(topicId),
-          subject_id: subjectId,
+          subject_id: targetSubjectId,
           slug: chapterSlug,
           title: topic.topicName,
           sort_order: tIdx,
@@ -147,7 +184,7 @@ Deno.serve(async (req: Request) => {
       } else {
         newChapterSlugs.add(chapterSlug);
         chapterUpserts.push({
-          subject_id: subjectId,
+          subject_id: targetSubjectId,
           slug: chapterSlug,
           title: topic.topicName,
           sort_order: tIdx,

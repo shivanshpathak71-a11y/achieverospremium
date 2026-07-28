@@ -365,6 +365,7 @@ export function CourseDetailPage({ slug }: { slug: string }) {
                     </div>
                     <p className="font-bold text-sm text-gray-900 line-clamp-2 pr-12">{l.title}</p>
                     {l.teacher_name && <p className="text-xs text-gray-400 mt-1">{l.teacher_name}</p>}
+                    {l.start_date && <p className="text-[10px] text-rose-500 font-medium mt-1">{new Date(l.start_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(l.start_date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</p>}
                     {ch && <p className="text-[10px] text-primary-500 font-medium mt-1">{ch.title}</p>}
                   </button>
                 );
@@ -715,6 +716,7 @@ export function CourseDetailPage({ slug }: { slug: string }) {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-sm text-gray-900">{l.title}</p>
+                          {l.start_date && <p className="text-[10px] text-rose-500 font-medium mt-0.5">{new Date(l.start_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(l.start_date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</p>}
                           {l.teacher_name && <p className="text-xs text-gray-400 mt-0.5">{l.teacher_name}</p>}
                         </div>
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500 text-white text-[10px] font-bold">
