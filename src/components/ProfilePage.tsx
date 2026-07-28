@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { CircleCheck as CheckCircle, Clock, Play, ChevronRight, Trash2, Settings, Moon, Bell, Download, Bookmark, Flame, Target, TrendingUp, LogOut } from 'lucide-react';
+import { CircleCheck as CheckCircle, Clock, Play, ChevronRight, Trash2, Settings, Moon, Bell, Download, Bookmark, Flame, Target, TrendingUp } from 'lucide-react';
 import { useRouter } from '../lib/router';
 import { useAllLectures, formatDuration } from '../lib/hooks';
 import { getAllProgress, getContinueWatching, clearAllProgress, getStudyStreak, getTodayStudySeconds, getDailyGoal, getTotalStudySeconds } from '../lib/storage';
-import { useAuth } from '../lib/auth';
 
 const FALLBACK_THUMB = 'https://images.pexels.com/photos/256541/pexels-photo-256541.jpeg?auto=compress&cs=tinysrgb&w=400';
 
@@ -22,7 +21,6 @@ export function ProfilePage() {
 
   const toggleBookmark = (id: string) => setBookmarks((p) => ({ ...p, [id]: !p[id] }));
   const handleClearProgress = () => { if (confirm('Clear all your progress? This cannot be undone.')) { clearAllProgress(); window.location.reload(); } };
-  const { signOut } = useAuth();
 
   return (
     <div className="max-w-5xl mx-auto px-4 pt-20 pb-24 lg:pb-12">
@@ -125,13 +123,6 @@ export function ProfilePage() {
           <button onClick={handleClearProgress} className="text-xs text-red-500/70 hover:text-red-500 flex items-center gap-1.5 transition-colors"><Trash2 className="w-3.5 h-3.5" /> Clear all progress</button>
         </div>
       )}
-
-      {/* Sign out */}
-      <div className="mt-6">
-        <button onClick={() => signOut()} className="w-full bg-white border border-gray-200 rounded-2xl p-4 flex items-center justify-center gap-2 text-sm font-semibold text-gray-600 hover:text-red-500 hover:border-red-200 transition-all">
-          <LogOut className="w-4 h-4" /> Sign Out
-        </button>
-      </div>
       {loading && <div className="space-y-2">{[1, 2, 3].map((i) => <div key={i} className="bg-white border border-gray-200 rounded-2xl h-16 animate-pulse" />)}</div>}
     </div>
   );

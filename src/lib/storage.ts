@@ -1,22 +1,5 @@
 const PREFIX = 'achiever_os_';
 
-// Sync hooks — set by App when user is authenticated
-let progressSyncFn: ((lectureId: string, position: number, duration: number, completed: boolean) => void) | null = null;
-let statsSyncFn: ((date: string, seconds: number) => void) | null = null;
-
-export function setSyncCallbacks(opts: {
-  onProgress?: (lectureId: string, position: number, duration: number, completed: boolean) => void;
-  onStats?: (date: string, seconds: number) => void;
-}) {
-  if (opts.onProgress) progressSyncFn = opts.onProgress;
-  if (opts.onStats) statsSyncFn = opts.onStats;
-}
-
-export function clearSyncCallbacks() {
-  progressSyncFn = null;
-  statsSyncFn = null;
-}
-
 export function getProgress(lectureId: string): { position: number; duration: number; completed: boolean } | null {
   try {
     const raw = localStorage.getItem(PREFIX + 'progress_' + lectureId);
@@ -29,7 +12,6 @@ export function setProgress(lectureId: string, position: number, duration: numbe
     const existing = getProgress(lectureId);
     const completed = existing?.completed || (duration > 0 && position >= duration * 0.95);
     localStorage.setItem(PREFIX + 'progress_' + lectureId, JSON.stringify({ position, duration, completed, updatedAt: Date.now() }));
-    progressSyncFn?.(lectureId, position, duration, completed);
   } catch { /* ignore */ }
 }
 
@@ -39,7 +21,6 @@ export function markCompleted(lectureId: string) {
     const position = existing?.position || 0;
     const duration = existing?.duration || 0;
     localStorage.setItem(PREFIX + 'progress_' + lectureId, JSON.stringify({ position, duration, completed: true, updatedAt: Date.now() }));
-    progressSyncFn?.(lectureId, position, duration, true);
   } catch { /* ignore */ }
 }
 
@@ -102,7 +83,6 @@ export function addStudyTime(seconds: number) {
   const log: Record<string, number> = raw ? JSON.parse(raw) : {};
   log[today] = (log[today] || 0) + seconds;
   localStorage.setItem(PREFIX + 'study_log', JSON.stringify(log));
-  statsSyncFn?.(today, log[today]);
 }
 
 export function getStudyLog(): Record<string, number> {
