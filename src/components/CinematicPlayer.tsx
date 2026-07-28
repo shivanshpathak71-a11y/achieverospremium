@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import type { Lecture } from '../lib/supabase';
 import { formatDuration } from '../lib/hooks';
-import { getProgress, setProgress } from '../lib/storage';
+import { getProgress, setProgress, addStudyTime } from '../lib/storage';
 
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 4];
 const QUALITIES = ['Auto', '144p', '240p', '360p', '480p', '720p', '1080p'];
@@ -70,7 +70,7 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
     if (!playing || !duration) return;
     const interval = setInterval(() => {
       const v = videoRef.current;
-      if (v) setProgress(lecture.id, v.currentTime, v.duration || duration);
+      if (v) { setProgress(lecture.id, v.currentTime, v.duration || duration); addStudyTime(5); }
     }, 5000);
     return () => clearInterval(interval);
   }, [playing, duration, lecture.id]);

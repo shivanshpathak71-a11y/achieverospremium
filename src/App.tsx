@@ -1,6 +1,9 @@
 import { Suspense, lazy, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RouterProvider, useRouter } from './lib/router';
+import { AuthProvider, useAuth } from './lib/auth';
+import { fullSync, pushProgress, pushStudyTime } from './lib/sync';
+import { setSyncCallbacks, clearSyncCallbacks } from './lib/storage';
 import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
 import { SplashScreen } from './components/SplashScreen';
@@ -14,6 +17,7 @@ const LecturePage      = lazy(() => import('./components/LecturePage').then(m =>
 const SearchPage       = lazy(() => import('./components/SearchPage').then(m => ({ default: m.SearchPage })));
 const ProfilePage      = lazy(() => import('./components/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const AdminPage        = lazy(() => import('./components/AdminPage').then(m => ({ default: m.AdminPage })));
+const AuthPage         = lazy(() => import('./components/AuthPage').then(m => ({ default: m.AuthPage })));
 
 function Loading() {
   return (
@@ -64,21 +68,53 @@ function Routes() {
   );
 }
 
-function App() {
+function AppContent() {
   const [showSplash, setShowSplash] = useState(true);
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 3200);
     return () => clearTimeout(timer);
   }, []);
 
+  // Trigger full sync when user signs in
+  useEffect(() => {
+    if (user) {
+      setSyncCallbacks({
+        onProgress: (lectureId, position, duration, completed) => pushProgress(lectureId, position, duration, completed),
+        onStats: (date, seconds) => pushStudyTime(date, seconds),
+      });
+      fullSync().catch(console.warn);
+    } else {
+      clearSyncCallbacks();
+    }
+  }, [user]);
+
+  if (loading || showSplash) {
+    return <SplashScreen visible={showSplash} />;
+  }
+
+  // Not signed in — show auth page
+  if (!user) {
+    return <AuthPage />;
+  }
+
   return (
-    <RouterProvider>
-      <SplashScreen visible={showSplash} />
+    <>
       <Navbar />
       <Routes />
       <BottomNav />
-    </RouterProvider>
+    </>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <RouterProvider>
+        <AppContent />
+      </RouterProvider>
+    </AuthProvider>
   );
 }
 
