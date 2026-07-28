@@ -58,8 +58,7 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!upstream.ok && upstream.status !== 206) {
-      const body = await upstream.text().catch(() => "");
-      return new Response(`Upstream error: ${upstream.status}\n${body.slice(0, 500)}`, {
+      return new Response(`Upstream error: ${upstream.status}`, {
         status: upstream.status,
         headers: { ...corsHeaders, "Content-Type": "text/plain" },
       });
@@ -67,7 +66,7 @@ Deno.serve(async (req: Request) => {
 
     const contentType = upstream.headers.get("content-type") || "application/octet-stream";
 
-    // HLS playlists — rewrite internal URLs
+    // HLS playlists — rewrite internal URLs, return as text
     if (shouldRewrite || contentType.includes("mpegurl") || target.includes(".m3u8")) {
       const text = await upstream.text();
       const rewritten = rewritePlaylist(text, target);
@@ -81,21 +80,24 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Binary media (segments) — stream directly, preserving Range/206 semantics
+    // Binary media (segments + MP4s) — stream the body directly without buffering
     const responseHeaders: Record<string, string> = {
       ...corsHeaders,
       "Content-Type": contentType,
       "Cache-Control": "public, max-age=3600",
     };
-    if (upstream.status === 206) {
-      const cr = upstream.headers.get("content-range");
-      const cl = upstream.headers.get("content-length");
-      if (cr) responseHeaders["Content-Range"] = cr;
-      if (cl) responseHeaders["Content-Length"] = cl;
-      responseHeaders["Accept-Ranges"] = "bytes";
-    }
-    const body = await upstream.arrayBuffer();
-    return new Response(body, {
+
+    // Preserve Content-Length and Content-Range for Range requests (206)
+    const contentLength = upstream.headers.get("content-length");
+    const contentRange = upstream.headers.get("content-range");
+    if (contentLength) responseHeaders["Content-Length"] = contentLength;
+    if (contentRange) responseHeaders["Content-Range"] = contentRange;
+    if (upstream.status === 206) responseHeaders["Accept-Ranges"] = "bytes";
+    const ar = upstream.headers.get("accept-ranges");
+    if (ar) responseHeaders["Accept-Ranges"] = ar;
+
+    // Stream the upstream body directly — no buffering, avoids memory limits
+    return new Response(upstream.body, {
       status: upstream.status,
       headers: responseHeaders,
     });

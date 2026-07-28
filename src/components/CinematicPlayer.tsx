@@ -50,18 +50,18 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
   const lastTapRef = useRef<{ time: number; side: 'left' | 'right' } | null>(null);
   const hlsRef = useRef<Hls | null>(null);
 
+  // hranker CDNs block browser Origin headers for both MP4 and HLS — route all through proxy
+  const PROXY_BASE = 'https://hdkbxuxzedsqyiccwomw.supabase.co/functions/v1/hls-proxy';
+  const isHls = lecture.video_url?.includes('.m3u8') ?? false;
+  const needsProxy = lecture.video_url?.includes('hranker.com') ?? false;
+  const streamUrl = needsProxy && lecture.video_url
+    ? `${PROXY_BASE}?u=${encodeURIComponent(lecture.video_url)}${isHls ? '&rewrite=1' : ''}`
+    : lecture.video_url || '';
+
   // HLS stream support
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !lecture.video_url) return;
-
-    const isHls = lecture.video_url.includes('.m3u8');
-    // hranker CDNs block browser Origin headers — route all hranker HLS through proxy
-    const needsProxy = lecture.video_url.includes('hranker.com');
-    const PROXY_BASE = 'https://hdkbxuxzedsqyiccwomw.supabase.co/functions/v1/hls-proxy';
-    const streamUrl = needsProxy
-      ? `${PROXY_BASE}?u=${encodeURIComponent(lecture.video_url)}&rewrite=1`
-      : lecture.video_url;
     if (isHls) {
       if (Hls.isSupported()) {
         const hls = new Hls({
@@ -76,7 +76,7 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
           fragLoadingRetryDelay: 500,
         });
         hlsRef.current = hls;
-        hls.loadSource(streamUrl);
+        hls.loadSource(streamUrl || '');
         hls.attachMedia(v);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           v.play().catch(() => { /* autoplay blocked, user must tap */ });
@@ -101,13 +101,13 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
         return () => { hls.destroy(); hlsRef.current = null; };
       }
       // Native HLS support (Safari/iOS) — set src directly
-      v.src = streamUrl;
+      v.src = streamUrl || '';
       v.play().catch(() => { /* autoplay blocked */ });
     } else {
-      // Plain MP4 — browser handles it via the src attribute
-      v.src = lecture.video_url;
+      // Plain MP4 — route through proxy if hranker (CDN blocks browser Origin headers)
+      v.src = streamUrl || '';
     }
-  }, [lecture.video_url]);
+  }, [streamUrl]);
 
   // Persist settings
   useEffect(() => { localStorage.setItem(LS_SPEED, String(speed)); }, [speed]);
@@ -301,7 +301,7 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
       <div ref={containerRef} className="relative w-full h-full bg-black rounded-2xl overflow-hidden group select-none"
         onMouseMove={showControlsTemp} onMouseLeave={() => { if (!menuView && playing && !locked) setShowControls(false); }}
         style={{ cursor: locked ? 'no-drop' : (showControls ? 'auto' : 'none') }}>
-        <video ref={videoRef} src={lecture.video_url && !lecture.video_url.includes('.m3u8') ? lecture.video_url : undefined} poster={lecture.thumbnail_url || undefined}
+        <video ref={videoRef} src={lecture.video_url && !isHls ? streamUrl : undefined} poster={lecture.thumbnail_url || undefined}
           className="w-full h-full object-contain"
           onClick={handleVideoClick}
           onLoadedMetadata={() => {
