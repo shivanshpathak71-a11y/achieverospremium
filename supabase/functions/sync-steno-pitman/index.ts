@@ -385,6 +385,7 @@ Deno.serve(async (req: Request) => {
         pdf_urls: lec.pdf_urls,
         source_video_urls: lec.source_video_urls,
         source_class_id: lec.source_class_id,
+        source_batch_id: `steno-${courseId}`,
         is_live: lec.is_live,
         is_free: lec.is_free,
         start_date: lec.start_date,

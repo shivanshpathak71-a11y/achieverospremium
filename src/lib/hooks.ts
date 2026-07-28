@@ -177,24 +177,27 @@ export function useLectureById(id: string | undefined) {
   return { lecture, loading };
 }
 
-export function useAllLectures() {
+export function useAllLectures(sourceBatchId?: string) {
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    supabase
+    let query = supabase
       .from('lectures')
-      .select('*')
-      .order('sort_order', { ascending: true })
-      .then(({ data, error }) => {
-        if (mounted) {
-          if (!error && data) setLectures(data as Lecture[]);
-          setLoading(false);
-        }
-      });
+      .select('*, chapter:chapters(*)')
+      .order('sort_order', { ascending: true });
+    if (sourceBatchId) {
+      query = query.eq('source_batch_id', sourceBatchId);
+    }
+    query.then(({ data, error }) => {
+      if (mounted) {
+        if (!error && data) setLectures(data as Lecture[]);
+        setLoading(false);
+      }
+    });
     return () => { mounted = false; };
-  }, []);
+  }, [sourceBatchId]);
 
   return { lectures, loading };
 }

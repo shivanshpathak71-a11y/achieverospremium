@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText, Play, CircleCheck as CheckCircle, Download,
@@ -38,11 +38,36 @@ const TAB_CONFIG: { id: Tab; label: string; icon: typeof BookOpen }[] = [
   { id: 'resources', label: 'Resources', icon: Layers },
 ];
 
-function getPdfList(lecture: { pdf_names: { name: string; url: string }[] | null; pdf_urls: string[] | null; pdf_url: string | null }) {
+function getPdfList(lecture: { pdf_names: { name: string; url: string }[] | null; pdf_urls: string[] | null; pdf_url: string | null; source_batch_id?: string | null; source_class_id?: string | null }) {
   if (lecture.pdf_names && lecture.pdf_names.length > 0) return lecture.pdf_names;
   if (lecture.pdf_urls && lecture.pdf_urls.length > 0) return lecture.pdf_urls.map((url, idx) => ({ name: url.split('/').pop()?.split('?')[0] || `PDF ${idx + 1}`, url }));
   if (lecture.pdf_url) return [{ name: lecture.pdf_url.split('/').pop()?.split('?')[0] || 'PDF 1', url: lecture.pdf_url }];
   return [];
+}
+
+// Fetch decrypted PDF URLs from Steno School proxy
+function useStenoPdfs(lecture: { source_batch_id?: string | null; source_class_id?: string | null; pdf_url?: string | null; pdf_urls?: string[] | null } | null) {
+  const [pdfs, setPdfs] = useState<{ name: string; url: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!lecture || !lecture.source_batch_id?.startsWith('steno-') || !lecture.source_class_id) return;
+    setLoading(true);
+    const courseId = lecture.source_batch_id.replace('steno-', '');
+    const proxyUrl = 'https://hdkbxuxzedsqyiccwomw.supabase.co/functions/v1/steno-video-proxy';
+    fetch(`${proxyUrl}?course_id=${courseId}&video_id=${lecture.source_class_id}`)
+      .then(r => r.json())
+      .then(d => {
+        const result: { name: string; url: string }[] = [];
+        if (d.pdf_url) result.push({ name: 'PDF 1', url: d.pdf_url });
+        if (d.pdf_url2) result.push({ name: 'PDF 2', url: d.pdf_url2 });
+        if (result.length > 0) setPdfs(result);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [lecture?.source_batch_id, lecture?.source_class_id]);
+
+  return { pdfs, loading };
 }
 
 function matchNoteCategory(pdfName: string, keywords: string[]): boolean {
@@ -63,7 +88,9 @@ export function LecturePage({ subjectSlug, chapterSlug, lectureId }: { subjectSl
 
   const currentIndex = useMemo(() => lectures.findIndex((l) => l.id === lectureId), [lectures, lectureId]);
   const nextLecture = currentIndex >= 0 && currentIndex < lectures.length - 1 ? lectures[currentIndex + 1] : null;
-  const pdfList = lecture ? getPdfList(lecture) : [];
+  const isSteno = lecture?.source_batch_id?.startsWith('steno-') ?? false;
+  const { pdfs: stenoPdfs } = useStenoPdfs(isSteno ? lecture : null);
+  const pdfList = isSteno ? stenoPdfs : (lecture ? getPdfList(lecture) : []);
 
   const filteredNotes = useMemo(() => {
     if (noteCategory === 'all') return pdfList;

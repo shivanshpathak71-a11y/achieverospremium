@@ -135,5 +135,7 @@ export interface Lecture {
   start_date: string | null;
   end_date: string | null;
   section_name: string | null;
+  source_batch_id: string | null;
+  source_class_id: string | null;
   chapter?: Chapter;
 }

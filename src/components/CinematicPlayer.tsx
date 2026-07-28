@@ -53,16 +53,38 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
   // HLS needs the proxy because hls.js uses fetch() (CORS-enforced) to download segments.
   // MP4 files load directly from the CDN — <video src> doesn't enforce CORS, so no proxy needed.
   const PROXY_BASE = 'https://hdkbxuxzedsqyiccwomw.supabase.co/functions/v1/hls-proxy';
-  const isHls = lecture.video_url?.includes('.m3u8') ?? false;
-  const needsProxy = !!lecture.video_url && (isHls || lecture.video_url.includes('hranker.com'));
-  const streamUrl = needsProxy && lecture.video_url
-    ? `${PROXY_BASE}?u=${encodeURIComponent(lecture.video_url)}${isHls ? '&rewrite=1' : ''}`
-    : lecture.video_url || '';
+  const STENO_PROXY = 'https://hdkbxuxzedsqyiccwomw.supabase.co/functions/v1/steno-video-proxy';
+  const isStenoVideo = lecture.source_batch_id?.startsWith('steno-') ?? false;
+  const [stenoVideoUrl, setStenoVideoUrl] = useState<string | null>(null);
+  const [stenoLoading, setStenoLoading] = useState(false);
+
+  // Fetch decrypted video URL from Steno proxy for AppX encrypted videos
+  useEffect(() => {
+    if (!isStenoVideo || !lecture.source_class_id) return;
+    setStenoLoading(true);
+    const courseId = lecture.source_batch_id!.replace('steno-', '');
+    fetch(`${STENO_PROXY}?course_id=${courseId}&video_id=${lecture.source_class_id}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.best_url) setStenoVideoUrl(d.best_url);
+        else if (d.playable_urls?.length > 0) setStenoVideoUrl(d.playable_urls[0].url);
+      })
+      .catch(() => {})
+      .finally(() => setStenoLoading(false));
+  }, [isStenoVideo, lecture.source_class_id, lecture.source_batch_id]);
+
+  const effectiveVideoUrl = isStenoVideo ? stenoVideoUrl : lecture.video_url;
+  const isHls = effectiveVideoUrl?.includes('.m3u8') ?? false;
+  const needsProxy = !!effectiveVideoUrl && (isHls || effectiveVideoUrl.includes('hranker.com'));
+  const streamUrl = needsProxy && effectiveVideoUrl
+    ? `${PROXY_BASE}?u=${encodeURIComponent(effectiveVideoUrl)}${isHls ? '&rewrite=1' : ''}`
+    : effectiveVideoUrl || '';
 
   // HLS stream support
   useEffect(() => {
     const v = videoRef.current;
-    if (!v || !lecture.video_url) return;
+    if (!v || !effectiveVideoUrl) return;
+    if (isStenoVideo && stenoLoading) return; // wait for proxy to return URL
     if (isHls) {
       if (Hls.isSupported()) {
         const hls = new Hls({
@@ -373,6 +395,14 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
           }}
           onVolumeChange={() => { const v = videoRef.current; if (v) { setMuted(v.muted); setVolume(v.volume); } }}
         />
+        {isStenoVideo && stenoLoading && !stenoVideoUrl && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <p className="text-xs text-white/70">Loading video...</p>
+            </div>
+          </div>
+        )}
 
         {/* LIVE badge for live classes */}
         {lecture.is_live && (
