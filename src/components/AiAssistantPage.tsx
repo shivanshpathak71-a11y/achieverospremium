@@ -37,7 +37,7 @@ export function AiAssistantPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-900">AI Study Assistant</h1>
-            <p className="text-xs text-gray-400">Powered by ChatGPT — your personal exam prep coach</p>
+            <p className="text-xs text-gray-400">Powered by Gemini — your personal exam prep coach</p>
           </div>
         </div>
       </motion.div>

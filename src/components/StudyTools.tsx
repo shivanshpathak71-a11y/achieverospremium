@@ -1,12 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Award, Loader as Loader2, RefreshCw, FileQuestion, CircleHelp as HelpCircle,
   Send, Sparkles, AlertCircle, StickyNote, Lightbulb, Calendar,
   ListChecks, GraduationCap, Brain, MessageSquare, ChevronDown, ChevronUp,
 } from 'lucide-react';
-import { callAi } from '../lib/ai';
-
-
+import { callAi, streamAi, type ChatMessage } from '../lib/ai';
+import { Markdown } from './Markdown';
 
 /* ──────────────────────────── Shared ──────────────────────────── */
 
@@ -27,6 +26,16 @@ function LoadingState({ label, color }: { label: string; color: string }) {
     <div className="flex flex-col items-center py-10 gap-3">
       <Loader2 className={`w-8 h-8 ${color} animate-spin`} />
       <p className="text-sm text-gray-400">{label}</p>
+    </div>
+  );
+}
+
+function TypingIndicator() {
+  return (
+    <div className="flex items-center gap-1.5 px-4 py-3 bg-gray-50 rounded-2xl w-fit">
+      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
     </div>
   );
 }
@@ -161,17 +170,25 @@ export function DoubtPanel({ lectureTitle, chapterTitle, subjectTitle }: { lectu
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
   const [answer, setAnswer] = useState<string | null>(null);
+  const [streamingText, setStreamingText] = useState('');
   const [history, setHistory] = useState<{ q: string; a: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const ask = async () => {
-    if (!question.trim()) return;
-    setLoading(true); setAnswer(null); setError(null);
-    const { data, error } = await callAi<string>({
-      action: 'doubt', lectureTitle, chapterTitle, subjectTitle, userMessage: question,
-    });
-    if (error || !data) { setError(error || 'No answer received'); }
-    else { setAnswer(data); setHistory([...history, { q: question, a: data }]); setQuestion(''); }
+    if (!question.trim() || loading) return;
+    const q = question;
+    setLoading(true); setAnswer(null); setStreamingText(''); setError(null);
+    let accumulated = '';
+    const { error: streamErr } = await streamAi(
+      { action: 'doubt', lectureTitle, chapterTitle, subjectTitle, userMessage: q },
+      (chunk) => { accumulated += chunk; setStreamingText(accumulated); },
+    );
+    if (streamErr) { setError(streamErr); }
+    else {
+      setAnswer(accumulated);
+      setHistory([...history, { q, a: accumulated }]);
+      setQuestion('');
+    }
     setLoading(false);
   };
 
@@ -185,13 +202,15 @@ export function DoubtPanel({ lectureTitle, chapterTitle, subjectTitle }: { lectu
         <input type="text" className="input-field flex-1" value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Type your doubt here…" onKeyDown={(e) => e.key === 'Enter' && ask()} />
         <button onClick={ask} disabled={loading || !question.trim()} className="btn-primary px-4">{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}</button>
       </div>
-      {loading && <LoadingState label="Thinking…" color="text-teal-500" />}
+      {loading && !streamingText && <div className="mb-4"><TypingIndicator /></div>}
       {error && !loading && <ErrorBanner message={error} />}
-      {answer && !loading && (
+      {(streamingText || answer) && !error && (
         <div className="bg-gray-50 rounded-xl p-4 mb-3">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0"><Sparkles className="w-4 h-4 text-teal-500" /></div>
-            <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{answer}</div>
+            <div className="flex-1 text-sm text-gray-700 leading-relaxed">
+              <Markdown content={answer || streamingText} />
+            </div>
           </div>
         </div>
       )}
@@ -201,7 +220,7 @@ export function DoubtPanel({ lectureTitle, chapterTitle, subjectTitle }: { lectu
           {history.slice(0, -1).reverse().map((h, i) => (
             <details key={i} className="bg-gray-50 rounded-xl p-3">
               <summary className="text-xs font-semibold text-gray-700 cursor-pointer">{h.q}</summary>
-              <p className="text-xs text-gray-500 mt-2 leading-relaxed whitespace-pre-wrap">{h.a}</p>
+              <div className="text-xs text-gray-500 mt-2 leading-relaxed"><Markdown content={h.a} /></div>
             </details>
           ))}
         </div>
@@ -215,33 +234,40 @@ export function DoubtPanel({ lectureTitle, chapterTitle, subjectTitle }: { lectu
 export function SummarizePanel({ lectureTitle, chapterTitle, subjectTitle }: { lectureTitle: string; chapterTitle?: string; subjectTitle?: string }) {
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState<string | null>(null);
+  const [streamingText, setStreamingText] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const generate = async () => {
-    setLoading(true); setNotes(null); setError(null);
-    const { data, error } = await callAi<string>({ action: 'summarize', lectureTitle, chapterTitle, subjectTitle });
-    if (error || !data) { setError(error || 'No summary generated'); }
-    else setNotes(data);
+    setLoading(true); setNotes(null); setStreamingText(''); setError(null);
+    let accumulated = '';
+    const { error: streamErr } = await streamAi(
+      { action: 'summarize', lectureTitle, chapterTitle, subjectTitle },
+      (chunk) => { accumulated += chunk; setStreamingText(accumulated); },
+    );
+    if (streamErr) { setError(streamErr); }
+    else setNotes(accumulated);
     setLoading(false);
   };
 
   return (
     <div>
-      {!notes && !loading && !error && (
+      {!notes && !loading && !streamingText && !error && (
         <div className="text-center py-8">
           <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center mx-auto mb-3"><StickyNote className="w-6 h-6 text-blue-500" /></div>
           <p className="text-sm text-gray-500 mb-4">Get a concise summary of this lecture as study notes.</p>
           <button onClick={generate} className="btn-primary text-sm py-2.5 px-5"><StickyNote className="w-4 h-4" /> Summarize Lecture</button>
         </div>
       )}
-      {loading && <LoadingState label="Summarizing lecture…" color="text-blue-500" />}
+      {loading && !streamingText && <LoadingState label="Summarizing lecture…" color="text-blue-500" />}
       {error && !loading && <ErrorBanner message={error} />}
-      {notes && !loading && (
+      {(streamingText || notes) && !error && (
         <div>
           <div className="bg-gray-50 rounded-xl p-5 mb-4">
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0"><Sparkles className="w-4 h-4 text-blue-500" /></div>
-              <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{notes}</div>
+              <div className="flex-1 text-sm text-gray-700 leading-relaxed">
+                <Markdown content={notes || streamingText} />
+              </div>
             </div>
           </div>
           <button onClick={generate} className="btn-secondary w-full py-3 text-sm"><RefreshCw className="w-4 h-4" /> Regenerate</button>
@@ -340,7 +366,7 @@ export function RevisionPanel({ lectureTitle, chapterTitle, subjectTitle }: { le
               {!revealed[i] ? (
                 <button onClick={() => setRevealed({ ...revealed, [i]: true })} className="text-xs text-emerald-600 font-medium mt-2 hover:underline">Show answer</button>
               ) : (
-                <p className="text-sm text-gray-600 mt-2 leading-relaxed">{q.answer}</p>
+                <div className="text-sm text-gray-600 mt-2 leading-relaxed"><Markdown content={q.answer} /></div>
               )}
             </div>
           ))}
@@ -356,33 +382,40 @@ export function RevisionPanel({ lectureTitle, chapterTitle, subjectTitle }: { le
 export function ExplainPanel({ lectureTitle, chapterTitle, subjectTitle }: { lectureTitle: string; chapterTitle?: string; subjectTitle?: string }) {
   const [loading, setLoading] = useState(false);
   const [explanation, setExplanation] = useState<string | null>(null);
+  const [streamingText, setStreamingText] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const generate = async () => {
-    setLoading(true); setExplanation(null); setError(null);
-    const { data, error } = await callAi<string>({ action: 'explain', lectureTitle, chapterTitle, subjectTitle });
-    if (error || !data) { setError(error || 'No explanation generated'); }
-    else setExplanation(data);
+    setLoading(true); setExplanation(null); setStreamingText(''); setError(null);
+    let accumulated = '';
+    const { error: streamErr } = await streamAi(
+      { action: 'explain', lectureTitle, chapterTitle, subjectTitle },
+      (chunk) => { accumulated += chunk; setStreamingText(accumulated); },
+    );
+    if (streamErr) { setError(streamErr); }
+    else setExplanation(accumulated);
     setLoading(false);
   };
 
   return (
     <div>
-      {!explanation && !loading && !error && (
+      {!explanation && !loading && !streamingText && !error && (
         <div className="text-center py-8">
           <div className="w-12 h-12 rounded-xl bg-cyan-50 flex items-center justify-center mx-auto mb-3"><Lightbulb className="w-6 h-6 text-cyan-500" /></div>
           <p className="text-sm text-gray-500 mb-4">Get this topic explained in simple, easy-to-understand language.</p>
           <button onClick={generate} className="btn-primary text-sm py-2.5 px-5"><Lightbulb className="w-4 h-4" /> Explain Simply</button>
         </div>
       )}
-      {loading && <LoadingState label="Explaining in simple terms…" color="text-cyan-500" />}
+      {loading && !streamingText && <LoadingState label="Explaining in simple terms…" color="text-cyan-500" />}
       {error && !loading && <ErrorBanner message={error} />}
-      {explanation && !loading && (
+      {(streamingText || explanation) && !error && (
         <div>
           <div className="bg-gray-50 rounded-xl p-5 mb-4">
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-lg bg-cyan-50 flex items-center justify-center flex-shrink-0"><Sparkles className="w-4 h-4 text-cyan-500" /></div>
-              <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{explanation}</div>
+              <div className="flex-1 text-sm text-gray-700 leading-relaxed">
+                <Markdown content={explanation || streamingText} />
+              </div>
             </div>
           </div>
           <button onClick={generate} className="btn-secondary w-full py-3 text-sm"><RefreshCw className="w-4 h-4" /> Regenerate</button>
@@ -398,16 +431,19 @@ export function SolvePyqPanel({ lectureTitle, chapterTitle, subjectTitle }: { le
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
   const [solution, setSolution] = useState<string | null>(null);
+  const [streamingText, setStreamingText] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const solve = async () => {
-    if (!question.trim()) return;
-    setLoading(true); setSolution(null); setError(null);
-    const { data, error } = await callAi<string>({
-      action: 'solve', lectureTitle, chapterTitle, subjectTitle, userMessage: question,
-    });
-    if (error || !data) { setError(error || 'No solution generated'); }
-    else setSolution(data);
+    if (!question.trim() || loading) return;
+    setLoading(true); setSolution(null); setStreamingText(''); setError(null);
+    let accumulated = '';
+    const { error: streamErr } = await streamAi(
+      { action: 'solve', lectureTitle, chapterTitle, subjectTitle, userMessage: question },
+      (chunk) => { accumulated += chunk; setStreamingText(accumulated); },
+    );
+    if (streamErr) { setError(streamErr); }
+    else setSolution(accumulated);
     setLoading(false);
   };
 
@@ -421,13 +457,15 @@ export function SolvePyqPanel({ lectureTitle, chapterTitle, subjectTitle }: { le
       <button onClick={solve} disabled={loading || !question.trim()} className="btn-primary w-full py-3 text-sm mb-4">
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <GraduationCap className="w-4 h-4" />} Solve Step by Step
       </button>
-      {loading && <LoadingState label="Solving step by step…" color="text-orange-500" />}
+      {loading && !streamingText && <LoadingState label="Solving step by step…" color="text-orange-500" />}
       {error && !loading && <ErrorBanner message={error} />}
-      {solution && !loading && (
+      {(streamingText || solution) && !error && (
         <div className="bg-gray-50 rounded-xl p-5">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0"><Sparkles className="w-4 h-4 text-orange-500" /></div>
-            <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{solution}</div>
+            <div className="flex-1 text-sm text-gray-700 leading-relaxed">
+              <Markdown content={solution || streamingText} />
+            </div>
           </div>
         </div>
       )}
@@ -438,22 +476,35 @@ export function SolvePyqPanel({ lectureTitle, chapterTitle, subjectTitle }: { le
 /* ──────────────────────────── AI Chat (general) ──────────────────────────── */
 
 export function AiChatPanel({ subjectTitle }: { subjectTitle?: string }) {
-  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [streamingText, setStreamingText] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, streamingText, loading]);
 
   const send = async () => {
     if (!input.trim() || loading) return;
     const userMsg = input;
-    setMessages([...messages, { role: 'user', content: userMsg }]);
-    setInput(''); setLoading(true); setError(null);
-    const { data, error } = await callAi<string>({
-      action: 'chat', subjectTitle, userMessage: userMsg,
-    });
-    if (error || !data) { setError(error || 'No response'); }
-    else setMessages(prev => [...prev, { role: 'assistant', content: data }]);
-    setLoading(false);
+    const newMessages = [...messages, { role: 'user' as const, content: userMsg }];
+    setMessages(newMessages);
+    setInput(''); setLoading(true); setError(null); setStreamingText('');
+    let accumulated = '';
+    const { error: streamErr } = await streamAi(
+      { action: 'chat', subjectTitle, messages: newMessages, userMessage: userMsg },
+      (chunk) => { accumulated += chunk; setStreamingText(accumulated); },
+    );
+    if (streamErr) { setError(streamErr); }
+    else {
+      setMessages(prev => [...prev, { role: 'model', content: accumulated }]);
+    }
+    setStreamingText(''); setLoading(false);
   };
 
   return (
@@ -462,7 +513,7 @@ export function AiChatPanel({ subjectTitle }: { subjectTitle?: string }) {
         <div className="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center mx-auto mb-2"><MessageSquare className="w-6 h-6 text-primary-500" /></div>
         <p className="text-sm text-gray-500">Ask anything about Reasoning, English, Math, GK, or any subject.</p>
       </div>
-      <div className="flex-1 space-y-3 mb-4 max-h-96 overflow-y-auto scrollbar-thin">
+      <div ref={scrollRef} className="flex-1 space-y-3 mb-4 max-h-96 overflow-y-auto scrollbar-thin">
         {messages.length === 0 && !loading && (
           <div className="text-center py-8">
             <p className="text-xs text-gray-400">Start a conversation with your AI study assistant.</p>
@@ -471,11 +522,21 @@ export function AiChatPanel({ subjectTitle }: { subjectTitle?: string }) {
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] rounded-2xl p-3.5 text-sm leading-relaxed ${m.role === 'user' ? 'bg-primary-600 text-white' : 'bg-gray-50 text-gray-700'}`}>
-              <div className="whitespace-pre-wrap">{m.content}</div>
+              {m.role === 'user' ? <div className="whitespace-pre-wrap">{m.content}</div> : <Markdown content={m.content} />}
             </div>
           </div>
         ))}
-        {loading && <div className="flex justify-start"><div className="bg-gray-50 rounded-2xl p-3.5"><Loader2 className="w-4 h-4 text-gray-400 animate-spin" /></div></div>}
+        {loading && (
+          <div className="flex justify-start">
+            {streamingText ? (
+              <div className="max-w-[85%] rounded-2xl p-3.5 bg-gray-50 text-gray-700">
+                <Markdown content={streamingText} />
+              </div>
+            ) : (
+              <TypingIndicator />
+            )}
+          </div>
+        )}
       </div>
       {error && <ErrorBanner message={error} />}
       <div className="flex gap-2">
@@ -491,17 +552,22 @@ export function AiChatPanel({ subjectTitle }: { subjectTitle?: string }) {
 export function StudyPlannerPanel() {
   const [loading, setLoading] = useState(false);
   const [plan, setPlan] = useState<string | null>(null);
+  const [streamingText, setStreamingText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [subjects, setSubjects] = useState('');
   const [hours, setHours] = useState('');
   const [goal, setGoal] = useState('');
 
   const generate = async () => {
-    setLoading(true); setPlan(null); setError(null);
+    setLoading(true); setPlan(null); setStreamingText(''); setError(null);
     const context = `Subjects: ${subjects || 'All subjects (Reasoning, English, Math, GK)'}. Available study time: ${hours || '4-6 hours per day'}. Exam goal: ${goal || 'SSC CGL/CHSL preparation'}.`;
-    const { data, error } = await callAi<string>({ action: 'plan', context });
-    if (error || !data) { setError(error || 'No plan generated'); }
-    else setPlan(data);
+    let accumulated = '';
+    const { error: streamErr } = await streamAi(
+      { action: 'plan', context },
+      (chunk) => { accumulated += chunk; setStreamingText(accumulated); },
+    );
+    if (streamErr) { setError(streamErr); }
+    else setPlan(accumulated);
     setLoading(false);
   };
 
@@ -519,13 +585,15 @@ export function StudyPlannerPanel() {
       <button onClick={generate} disabled={loading} className="btn-primary w-full py-3 text-sm mb-4">
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calendar className="w-4 h-4" />} Create My Study Plan
       </button>
-      {loading && <LoadingState label="Creating your study plan…" color="text-primary-500" />}
+      {loading && !streamingText && <LoadingState label="Creating your study plan…" color="text-primary-500" />}
       {error && !loading && <ErrorBanner message={error} />}
-      {plan && !loading && (
+      {(streamingText || plan) && !error && (
         <div className="bg-gray-50 rounded-xl p-5">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg bg-primary-50 flex items-center justify-center flex-shrink-0"><Sparkles className="w-4 h-4 text-primary-500" /></div>
-            <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{plan}</div>
+            <div className="flex-1 text-sm text-gray-700 leading-relaxed">
+              <Markdown content={plan || streamingText} />
+            </div>
           </div>
         </div>
       )}
