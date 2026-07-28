@@ -48,7 +48,7 @@ Deno.serve(async (req: Request) => {
     const upstreamHeaders: Record<string, string> = {
       "User-Agent": "Mozilla/5.0 (compatible; HLSCoordinator/1.0)",
       "Accept": "*/*",
-      "Accept-Encoding": "gzip, deflate, br",
+      "Accept-Encoding": "identity",
       "Connection": "keep-alive",
     };
     const range = req.headers.get("Range");

@@ -68,9 +68,9 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: false,
-          maxBufferLength: 30,
-          maxMaxBufferLength: 60,
-          backBufferLength: 30,
+          maxBufferLength: 60,
+          maxMaxBufferLength: 120,
+          backBufferLength: 90,
           startLevel: -1,
           testBandwidth: true,
           manifestLoadingTimeOut: 20000,
@@ -118,6 +118,7 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
     } else {
       // Plain MP4 — route through proxy if hranker (CDN blocks browser Origin headers)
       v.src = streamUrl || '';
+      v.load();
     }
   }, [streamUrl]);
 
@@ -147,6 +148,32 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
     }, 5000);
     return () => clearInterval(interval);
   }, [playing, duration, lecture.id]);
+
+  // Auto-recover from stalls: if waiting too long, nudge the player
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    let stallTimer: number | undefined;
+    const onWaiting = () => {
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = window.setTimeout(() => {
+        if (v.paused) return;
+        // If still waiting after 8s, reload the current time to re-request bytes
+        const t = v.currentTime;
+        v.load();
+        v.currentTime = t;
+        v.play().catch(() => {});
+      }, 8000);
+    };
+    const onPlaying = () => { if (stallTimer) clearTimeout(stallTimer); };
+    v.addEventListener('waiting', onWaiting);
+    v.addEventListener('playing', onPlaying);
+    return () => {
+      if (stallTimer) clearTimeout(stallTimer);
+      v.removeEventListener('waiting', onWaiting);
+      v.removeEventListener('playing', onPlaying);
+    };
+  }, [streamUrl]);
 
   const togglePlay = useCallback(() => {
     const v = videoRef.current; if (!v || locked) return;
@@ -313,8 +340,9 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
       <div ref={containerRef} className="relative w-full h-full bg-black rounded-2xl overflow-hidden group select-none"
         onMouseMove={showControlsTemp} onMouseLeave={() => { if (!menuView && playing && !locked) setShowControls(false); }}
         style={{ cursor: locked ? 'no-drop' : (showControls ? 'auto' : 'none') }}>
-        <video ref={videoRef} src={lecture.video_url && !isHls ? streamUrl : undefined} poster={lecture.thumbnail_url || undefined}
+        <video ref={videoRef} poster={lecture.thumbnail_url || undefined}
           className="w-full h-full object-contain"
+          preload="auto" playsInline
           onClick={handleVideoClick}
           onLoadedMetadata={() => {
             const v = videoRef.current;
