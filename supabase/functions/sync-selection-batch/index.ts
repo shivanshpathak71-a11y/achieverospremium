@@ -48,12 +48,12 @@ Deno.serve(async (req: Request) => {
     const classesData = await classesRes.json();
     const topics = classesData.data.classes;
 
-    // 3. Upsert main subject (container) with all course-level enrichment fields
+    // 3. Upsert subject with all course-level enrichment fields
     const subjectSlug = "selection-batch-10";
     const { data: subjectRow } = await supabase
       .from("subjects")
       .select("id")
-      .eq("slug", subjectSlug)
+      .eq("source_batch_id", SOURCE_BATCH_ID)
       .maybeSingle();
 
     const courseEnrichment = {
@@ -244,7 +244,6 @@ Deno.serve(async (req: Request) => {
           class_tests: classTests,
           source_video_urls: allVideoUrls.length > 0 ? allVideoUrls : null,
           source_class_id: cls.classId,
-          source_batch_id: SOURCE_BATCH_ID,
           is_live: cls.isLive || false,
           is_free: cls.isFree || false,
           is_blinking: cls.isBlinking || false,

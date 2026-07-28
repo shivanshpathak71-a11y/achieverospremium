@@ -1,12 +1,12 @@
 import { motion } from 'framer-motion';
-import { Chrome as Home, BookOpen, FileText, Sparkles, User } from 'lucide-react';
+import { Chrome as Home, BookOpen, FileText, FileArchive, User } from 'lucide-react';
 import { useRouter, type Route } from '../lib/router';
 
 const TABS: { id: string; label: string; icon: typeof Home; route: Route }[] = [
   { id: 'home',            label: 'Home',    icon: Home,          route: { name: 'home' } },
-  { id: 'courses',         label: 'Batches', icon: BookOpen,     route: { name: 'courses' } },
+  { id: 'courses',         label: 'Courses', icon: BookOpen,     route: { name: 'courses' } },
   { id: 'test-series',     label: 'Tests',   icon: FileText,     route: { name: 'test-series' } },
-  { id: 'ai-assistant', label: 'AI',      icon: Sparkles,    route: { name: 'ai-assistant' } },
+  { id: 'previous-papers', label: 'Papers',  icon: FileArchive,  route: { name: 'previous-papers' } },
   { id: 'profile',         label: 'Profile', icon: User,         route: { name: 'profile' } },
 ];
 
@@ -15,9 +15,9 @@ export function BottomNav() {
 
   const isActive = (tabId: string) => {
     if (tabId === 'home') return route.name === 'home';
-    if (tabId === 'courses') return ['courses', 'course', 'chapter', 'lecture', 'folder', 'teacher', 'teachers', 'free-content'].includes(route.name);
+    if (tabId === 'courses') return ['courses', 'course', 'chapter', 'lecture', 'free-content'].includes(route.name);
     if (tabId === 'test-series') return route.name === 'test-series';
-    if (tabId === 'ai-assistant') return route.name === 'ai-assistant';
+    if (tabId === 'previous-papers') return route.name === 'previous-papers';
     if (tabId === 'profile') return route.name === 'profile';
     return false;
   };

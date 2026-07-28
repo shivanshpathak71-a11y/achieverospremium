@@ -20,7 +20,7 @@ function rewritePlaylist(content: string, baseUrl: string): string {
     } catch {
       return line;
     }
-    if (!resolved.includes("hranker.com") && !resolved.includes("classx.co.in") && !resolved.includes("appx.co.in")) return line;
+    if (!resolved.includes("hranker.com")) return line;
     const encoded = encodeURIComponent(resolved);
     return isMaster
       ? `${PROXY_BASE}?u=${encoded}&rewrite=1`
@@ -51,11 +51,6 @@ Deno.serve(async (req: Request) => {
       "Accept-Encoding": "identity",
       "Connection": "keep-alive",
     };
-    // classx.co.in CDN requires a Referer/Origin from the AppX platform origin
-    if (target.includes("classx.co.in") || target.includes("appx.co.in")) {
-      upstreamHeaders["Referer"] = "https://stenoschool.akamai.net.in/";
-      upstreamHeaders["Origin"] = "https://stenoschool.akamai.net.in";
-    }
     const range = req.headers.get("Range");
     if (range) upstreamHeaders["Range"] = range;
 

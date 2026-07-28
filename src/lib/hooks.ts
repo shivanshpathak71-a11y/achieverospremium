@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, type Subject, type Chapter, type Lecture, type CourseNote, type Teacher, type Folder, type Topic } from './supabase';
+import { supabase, type Subject, type Chapter, type Lecture, type CourseNote } from './supabase';
 
 // ── Format helpers ──────────────────────────────────────────
 export function formatDuration(seconds: number): string {
@@ -177,27 +177,24 @@ export function useLectureById(id: string | undefined) {
   return { lecture, loading };
 }
 
-export function useAllLectures(sourceBatchId?: string) {
+export function useAllLectures() {
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    let query = supabase
+    supabase
       .from('lectures')
-      .select('*, chapter:chapters(*)')
-      .order('sort_order', { ascending: true });
-    if (sourceBatchId) {
-      query = query.eq('source_batch_id', sourceBatchId);
-    }
-    query.then(({ data, error }) => {
-      if (mounted) {
-        if (!error && data) setLectures(data as Lecture[]);
-        setLoading(false);
-      }
-    });
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .then(({ data, error }) => {
+        if (mounted) {
+          if (!error && data) setLectures(data as Lecture[]);
+          setLoading(false);
+        }
+      });
     return () => { mounted = false; };
-  }, [sourceBatchId]);
+  }, []);
 
   return { lectures, loading };
 }
@@ -225,200 +222,6 @@ export function useCourseNotes(subjectId: string | undefined) {
   }, [subjectId]);
 
   return { notes, loading };
-}
-
-// ── Teacher Hooks ──────────────────────────────────────────────
-export function useTeachers() {
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-    supabase
-      .from('teachers')
-      .select('*')
-      .order('sort_order', { ascending: true })
-      .then(({ data, error }) => {
-        if (mounted) {
-          if (!error && data) setTeachers(data as Teacher[]);
-          setLoading(false);
-        }
-      });
-    return () => { mounted = false; };
-  }, []);
-
-  return { teachers, loading };
-}
-
-export function useTeacherBySlug(slug: string | undefined) {
-  const [teacher, setTeacher] = useState<Teacher | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!slug) { setLoading(false); return; }
-    let mounted = true;
-    supabase
-      .from('teachers')
-      .select('*')
-      .eq('slug', slug)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (mounted) {
-          if (!error && data) setTeacher(data as Teacher);
-          setLoading(false);
-        }
-      });
-    return () => { mounted = false; };
-  }, [slug]);
-
-  return { teacher, loading };
-}
-
-export function useSubjectsByTeacher(teacherId: string | undefined) {
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!teacherId) { setLoading(false); return; }
-    let mounted = true;
-    supabase
-      .from('subjects')
-      .select('*')
-      .eq('teacher_id', teacherId)
-      .order('sort_order', { ascending: true })
-      .then(({ data, error }) => {
-        if (mounted) {
-          if (!error && data) setSubjects(data as Subject[]);
-          setLoading(false);
-        }
-      });
-    return () => { mounted = false; };
-  }, [teacherId]);
-
-  return { subjects, loading };
-}
-
-// ── Folder Hooks ───────────────────────────────────────────────
-export function useFoldersBySubject(subjectId: string | undefined) {
-  const [folders, setFolders] = useState<Folder[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!subjectId) { setLoading(false); return; }
-    let mounted = true;
-    supabase
-      .from('folders')
-      .select('*')
-      .eq('subject_id', subjectId)
-      .order('sort_order', { ascending: true })
-      .then(({ data, error }) => {
-        if (mounted) {
-          if (!error && data) setFolders(data as Folder[]);
-          setLoading(false);
-        }
-      });
-    return () => { mounted = false; };
-  }, [subjectId]);
-
-  return { folders, loading };
-}
-
-export function useFolderBySlug(subjectId: string | undefined, folderSlug: string | undefined) {
-  const [folder, setFolder] = useState<Folder | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!subjectId || !folderSlug) { setLoading(false); return; }
-    let mounted = true;
-    supabase
-      .from('folders')
-      .select('*')
-      .eq('subject_id', subjectId)
-      .eq('slug', folderSlug)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (mounted) {
-          if (!error && data) setFolder(data as Folder);
-          setLoading(false);
-        }
-      });
-    return () => { mounted = false; };
-  }, [subjectId, folderSlug]);
-
-  return { folder, loading };
-}
-
-export function useChaptersByFolder(folderId: string | undefined) {
-  const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!folderId) { setLoading(false); return; }
-    let mounted = true;
-    supabase
-      .from('chapters')
-      .select('*')
-      .eq('folder_id', folderId)
-      .order('sort_order', { ascending: true })
-      .then(({ data, error }) => {
-        if (mounted) {
-          if (!error && data) setChapters(data as Chapter[]);
-          setLoading(false);
-        }
-      });
-    return () => { mounted = false; };
-  }, [folderId]);
-
-  return { chapters, loading };
-}
-
-// ── Topic Hooks ───────────────────────────────────────────────
-export function useTopicsByChapter(chapterId: string | undefined) {
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!chapterId) { setLoading(false); return; }
-    let mounted = true;
-    supabase
-      .from('topics')
-      .select('*')
-      .eq('chapter_id', chapterId)
-      .order('sort_order', { ascending: true })
-      .then(({ data, error }) => {
-        if (mounted) {
-          if (!error && data) setTopics(data as Topic[]);
-          setLoading(false);
-        }
-      });
-    return () => { mounted = false; };
-  }, [chapterId]);
-
-  return { topics, loading };
-}
-
-export function useLecturesByTopic(topicId: string | undefined) {
-  const [lectures, setLectures] = useState<Lecture[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!topicId) { setLoading(false); return; }
-    let mounted = true;
-    supabase
-      .from('lectures')
-      .select('*')
-      .eq('topic_id', topicId)
-      .order('sort_order', { ascending: true })
-      .then(({ data, error }) => {
-        if (mounted) {
-          if (!error && data) setLectures(data as Lecture[]);
-          setLoading(false);
-        }
-      });
-    return () => { mounted = false; };
-  }, [topicId]);
-
-  return { lectures, loading };
 }
 
 // ── PWA Hook ──────────────────────────────────────────────────

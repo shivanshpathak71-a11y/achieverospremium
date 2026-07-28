@@ -1,21 +1,20 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText, Play, CircleCheck as CheckCircle, Download,
   Clock, BookOpen, Award, Bookmark, Pin, FileQuestion, Radio,
   ExternalLink, ArrowRight, Layers, CheckCircle2, StickyNote,
-  NotebookPen, Sigma, ClipboardList, FileEdit, Network, BookMarked,
-  Sparkles, Lightbulb, Brain, ListChecks, GraduationCap, HelpCircle
+  NotebookPen, Sigma, ClipboardList, FileEdit, Network, BookMarked
 } from 'lucide-react';
 import { useRouter } from '../lib/router';
 import { useLectureById, useChaptersBySubjectSlug, useLectures, formatDuration } from '../lib/hooks';
 import { getProgress, markCompleted, unmarkCompleted, isDownloaded } from '../lib/storage';
 import { CinematicPlayer } from './CinematicPlayer';
-import { PracticeQuizPanel, McqPanel, DoubtPanel, SummarizePanel, FlashcardPanel, RevisionPanel, ExplainPanel, SolvePyqPanel } from './StudyTools';
+import { PracticeQuizPanel, McqPanel, DoubtPanel } from './StudyTools';
 
 const FALLBACK_THUMB = 'https://images.pexels.com/photos/256541/pexels-photo-256541.jpeg?auto=compress&cs=tinysrgb&w=400';
 
-type Tab = 'description' | 'notes' | 'pdf' | 'quiz' | 'mcqs' | 'doubt' | 'ai' | 'resources';
+type Tab = 'description' | 'notes' | 'pdf' | 'quiz' | 'mcqs' | 'doubt' | 'resources';
 type NoteCategory = 'all' | 'class-notes' | 'short-notes' | 'formula-sheet' | 'assignments' | 'practice-sheets' | 'mind-maps' | 'revision-notes';
 
 const NOTE_CATEGORIES: { id: NoteCategory; label: string; icon: typeof BookOpen; keywords: string[] }[] = [
@@ -36,47 +35,14 @@ const TAB_CONFIG: { id: Tab; label: string; icon: typeof BookOpen }[] = [
   { id: 'quiz', label: 'Tests', icon: Award },
   { id: 'mcqs', label: 'MCQs', icon: FileQuestion },
   { id: 'doubt', label: 'Doubts', icon: FileQuestion },
-  { id: 'ai', label: 'AI Assistant', icon: Sparkles },
   { id: 'resources', label: 'Resources', icon: Layers },
 ];
 
-function getPdfList(lecture: { pdf_names: { name: string; url: string }[] | null; pdf_urls: string[] | null; pdf_url: string | null; source_batch_id?: string | null; source_class_id?: string | null }) {
+function getPdfList(lecture: { pdf_names: { name: string; url: string }[] | null; pdf_urls: string[] | null; pdf_url: string | null }) {
   if (lecture.pdf_names && lecture.pdf_names.length > 0) return lecture.pdf_names;
   if (lecture.pdf_urls && lecture.pdf_urls.length > 0) return lecture.pdf_urls.map((url, idx) => ({ name: url.split('/').pop()?.split('?')[0] || `PDF ${idx + 1}`, url }));
   if (lecture.pdf_url) return [{ name: lecture.pdf_url.split('/').pop()?.split('?')[0] || 'PDF 1', url: lecture.pdf_url }];
   return [];
-}
-
-// Fetch decrypted PDF URLs from Steno School proxy
-function useStenoPdfs(lecture: { source_batch_id?: string | null; source_class_id?: string | null; pdf_url?: string | null; pdf_urls?: string[] | null } | null) {
-  const [pdfs, setPdfs] = useState<{ name: string; url: string }[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!lecture || !lecture.source_batch_id?.startsWith('steno-') || !lecture.source_class_id) return;
-    setLoading(true);
-    const courseId = lecture.source_batch_id.replace('steno-', '');
-    const proxyUrl = 'https://hdkbxuxzedsqyiccwomw.supabase.co/functions/v1/steno-video-proxy';
-    const hlsProxy = 'https://hdkbxuxzedsqyiccwomw.supabase.co/functions/v1/hls-proxy';
-    fetch(`${proxyUrl}?course_id=${courseId}&video_id=${lecture.source_class_id}`)
-      .then(r => r.json())
-      .then(d => {
-        const result: { name: string; url: string }[] = [];
-        const wrapUrl = (url: string) => {
-          if (url.includes('classx.co.in') || url.includes('appx.co.in')) {
-            return `${hlsProxy}?u=${encodeURIComponent(url)}`;
-          }
-          return url;
-        };
-        if (d.pdf_url) result.push({ name: 'PDF 1', url: wrapUrl(d.pdf_url) });
-        if (d.pdf_url2) result.push({ name: 'PDF 2', url: wrapUrl(d.pdf_url2) });
-        if (result.length > 0) setPdfs(result);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [lecture?.source_batch_id, lecture?.source_class_id]);
-
-  return { pdfs, loading };
 }
 
 function matchNoteCategory(pdfName: string, keywords: string[]): boolean {
@@ -97,9 +63,7 @@ export function LecturePage({ subjectSlug, chapterSlug, lectureId }: { subjectSl
 
   const currentIndex = useMemo(() => lectures.findIndex((l) => l.id === lectureId), [lectures, lectureId]);
   const nextLecture = currentIndex >= 0 && currentIndex < lectures.length - 1 ? lectures[currentIndex + 1] : null;
-  const isSteno = lecture?.source_batch_id?.startsWith('steno-') ?? false;
-  const { pdfs: stenoPdfs } = useStenoPdfs(isSteno ? lecture : null);
-  const pdfList = isSteno ? stenoPdfs : (lecture ? getPdfList(lecture) : []);
+  const pdfList = lecture ? getPdfList(lecture) : [];
 
   const filteredNotes = useMemo(() => {
     if (noteCategory === 'all') return pdfList;
@@ -171,7 +135,6 @@ export function LecturePage({ subjectSlug, chapterSlug, lectureId }: { subjectSl
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400">
                         <span className="flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" /> {formatDuration(lec.duration_seconds)}</span>
-                        {lec.is_live && lec.start_date && <span className="text-rose-500 font-medium">{new Date(lec.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
                         {(lec.pdf_urls || (lec.pdf_url ? [lec.pdf_url] : [])).length > 0 && <span className="flex items-center gap-0.5 text-primary-500"><FileText className="w-2.5 h-2.5" /> PDF</span>}
                         {isDownloadedFlag && <span className="flex items-center gap-0.5 text-success-500"><Download className="w-2.5 h-2.5" /> Saved</span>}
                       </div>
@@ -399,60 +362,6 @@ export function LecturePage({ subjectSlug, chapterSlug, lectureId }: { subjectSl
 
                     {/* ─── Doubt ─── */}
                     {activeTab === 'doubt' && <DoubtPanel />}
-
-                    {/* ─── AI Assistant ─── */}
-                    {activeTab === 'ai' && (
-                      <div className="space-y-6">
-                        <details open className="bg-blue-50/50 rounded-2xl p-4 border border-blue-100">
-                          <summary className="text-sm font-semibold text-gray-900 cursor-pointer flex items-center gap-2">
-                            <StickyNote className="w-4 h-4 text-blue-500" /> Summarize Lecture
-                          </summary>
-                          <div className="mt-3"><SummarizePanel lectureTitle={lecture.title} chapterTitle={chapter?.title} subjectTitle={chapter?.title} /></div>
-                        </details>
-                        <details className="bg-cyan-50/50 rounded-2xl p-4 border border-cyan-100">
-                          <summary className="text-sm font-semibold text-gray-900 cursor-pointer flex items-center gap-2">
-                            <Lightbulb className="w-4 h-4 text-cyan-500" /> Explain in Simple Language
-                          </summary>
-                          <div className="mt-3"><ExplainPanel lectureTitle={lecture.title} chapterTitle={chapter?.title} subjectTitle={chapter?.title} /></div>
-                        </details>
-                        <details className="bg-pink-50/50 rounded-2xl p-4 border border-pink-100">
-                          <summary className="text-sm font-semibold text-gray-900 cursor-pointer flex items-center gap-2">
-                            <Award className="w-4 h-4 text-pink-500" /> Practice Quiz
-                          </summary>
-                          <div className="mt-3"><PracticeQuizPanel lectureTitle={lecture.title} chapterTitle={chapter?.title} subjectTitle={chapter?.title} /></div>
-                        </details>
-                        <details className="bg-amber-50/50 rounded-2xl p-4 border border-amber-100">
-                          <summary className="text-sm font-semibold text-gray-900 cursor-pointer flex items-center gap-2">
-                            <FileQuestion className="w-4 h-4 text-amber-500" /> Generate MCQs
-                          </summary>
-                          <div className="mt-3"><McqPanel lectureTitle={lecture.title} chapterTitle={chapter?.title} subjectTitle={chapter?.title} /></div>
-                        </details>
-                        <details className="bg-violet-50/50 rounded-2xl p-4 border border-violet-100">
-                          <summary className="text-sm font-semibold text-gray-900 cursor-pointer flex items-center gap-2">
-                            <Brain className="w-4 h-4 text-violet-500" /> Flashcards
-                          </summary>
-                          <div className="mt-3"><FlashcardPanel lectureTitle={lecture.title} chapterTitle={chapter?.title} subjectTitle={chapter?.title} /></div>
-                        </details>
-                        <details className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-100">
-                          <summary className="text-sm font-semibold text-gray-900 cursor-pointer flex items-center gap-2">
-                            <ListChecks className="w-4 h-4 text-emerald-500" /> Daily Revision Questions
-                          </summary>
-                          <div className="mt-3"><RevisionPanel lectureTitle={lecture.title} chapterTitle={chapter?.title} subjectTitle={chapter?.title} /></div>
-                        </details>
-                        <details className="bg-orange-50/50 rounded-2xl p-4 border border-orange-100">
-                          <summary className="text-sm font-semibold text-gray-900 cursor-pointer flex items-center gap-2">
-                            <GraduationCap className="w-4 h-4 text-orange-500" /> Solve Previous-Year Questions
-                          </summary>
-                          <div className="mt-3"><SolvePyqPanel lectureTitle={lecture.title} chapterTitle={chapter?.title} subjectTitle={chapter?.title} /></div>
-                        </details>
-                        <details className="bg-teal-50/50 rounded-2xl p-4 border border-teal-100">
-                          <summary className="text-sm font-semibold text-gray-900 cursor-pointer flex items-center gap-2">
-                            <HelpCircle className="w-4 h-4 text-teal-500" /> Ask a Doubt
-                          </summary>
-                          <div className="mt-3"><DoubtPanel lectureTitle={lecture.title} chapterTitle={chapter?.title} subjectTitle={chapter?.title} /></div>
-                        </details>
-                      </div>
-                    )}
 
                     {/* ─── Resources ─── */}
                     {activeTab === 'resources' && (

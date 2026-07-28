@@ -6,7 +6,7 @@ import { useAuth } from '../lib/auth';
 
 const NAV_ITEMS: { label: string; route: Route }[] = [
   { label: 'Home',               route: { name: 'home' } },
-  { label: 'Batches',            route: { name: 'courses' } },
+  { label: 'Courses',            route: { name: 'courses' } },
   { label: 'Test Series',        route: { name: 'test-series' } },
   { label: 'Free Content',       route: { name: 'free-content' } },
   { label: 'Previous Year Papers', route: { name: 'previous-papers' } },
@@ -27,7 +27,7 @@ export function Navbar() {
 
   const isActive = (label: string) => {
     if (label === 'Home') return route.name === 'home';
-    if (label === 'Batches') return ['courses', 'course', 'chapter', 'lecture', 'folder', 'teacher', 'teachers'].includes(route.name);
+    if (label === 'Courses') return ['courses', 'course', 'chapter', 'lecture'].includes(route.name);
     if (label === 'Test Series') return route.name === 'test-series';
     if (label === 'Free Content') return route.name === 'free-content';
     if (label === 'Previous Year Papers') return route.name === 'previous-papers';

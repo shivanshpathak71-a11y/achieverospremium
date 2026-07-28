@@ -7,40 +7,6 @@ export const supabase = createClient(url, anonKey, {
   auth: { persistSession: true, autoRefreshToken: true },
 });
 
-export interface Teacher {
-  id: string;
-  slug: string;
-  name: string;
-  image_url: string | null;
-  bio: string | null;
-  designation: string | null;
-  sort_order: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Folder {
-  id: string;
-  slug: string;
-  title: string;
-  description: string | null;
-  icon: string | null;
-  color: string | null;
-  subject_id: string;
-  sort_order: number;
-  created_at: string;
-}
-
-export interface Topic {
-  id: string;
-  slug: string;
-  title: string;
-  description: string | null;
-  chapter_id: string;
-  sort_order: number;
-  created_at: string;
-}
-
 export interface TimeTableEntry {
   topic: string;
   time: string;
@@ -96,7 +62,6 @@ export interface Subject {
   is_free: boolean;
   is_recorded: boolean;
   demo_video_url: string | null;
-  teacher_id: string | null;
 }
 
 export interface Chapter {
@@ -109,7 +74,6 @@ export interface Chapter {
   created_at: string;
   lecture_count?: number;
   subject?: Subject;
-  folder_id: string | null;
 }
 
 export interface ClassTest {
@@ -171,8 +135,5 @@ export interface Lecture {
   start_date: string | null;
   end_date: string | null;
   section_name: string | null;
-  source_batch_id: string | null;
-  source_class_id: string | null;
-  topic_id: string | null;
   chapter?: Chapter;
 }
