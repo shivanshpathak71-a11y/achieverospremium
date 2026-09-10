@@ -87,10 +87,18 @@ function AppContent() {
 
   return (
     <>
-      <Navbar />
-      <Routes />
-      <BottomNav />
-      <PWAInstallPrompt />
+      <div className="scifi-bg" aria-hidden="true">
+        <div className="scifi-grid" />
+        <div className="scifi-blob scifi-blob-cyan" />
+        <div className="scifi-blob scifi-blob-violet" />
+        <div className="scifi-blob scifi-blob-magenta" />
+      </div>
+      <div className="relative z-10">
+        <Navbar />
+        <Routes />
+        <BottomNav />
+        <PWAInstallPrompt />
+      </div>
     </>
   );
 }

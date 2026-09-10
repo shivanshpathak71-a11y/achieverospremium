@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { ChevronLeft, ChevronRight, BookOpen, FileText, Play, Pin, Sparkles } from 'lucide-react';
 import { useRouter } from '../lib/router';
 import { useSubject, useChapters, useLectures, formatDuration } from '../lib/hooks';

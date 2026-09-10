@@ -147,7 +147,28 @@ export function useLectures(chapterId: string | undefined) {
           setLoading(false);
         }
       });
-    return () => { mounted = false; };
+
+    // Realtime: update individual lecture in list when any column changes
+    const channel = supabase
+      .channel(`lectures-${chapterId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'lectures', filter: `chapter_id=eq.${chapterId}` },
+        (payload) => {
+          if (mounted && payload.new) {
+            const updated = payload.new as Lecture;
+            setLectures((prev) =>
+              prev.map((l) => (l.id === updated.id ? updated : l)),
+            );
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
   }, [chapterId]);
 
   return { lectures, loading };
@@ -171,7 +192,25 @@ export function useLectureById(id: string | undefined) {
           setLoading(false);
         }
       });
-    return () => { mounted = false; };
+
+    // Realtime: update lecture when any column changes (is_live, is_chat, video_url, etc.)
+    const channel = supabase
+      .channel(`lecture-${id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'lectures', filter: `id=eq.${id}` },
+        (payload) => {
+          if (mounted && payload.new) {
+            setLecture(payload.new as Lecture);
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
   }, [id]);
 
   return { lecture, loading };
@@ -193,7 +232,28 @@ export function useAllLectures() {
           setLoading(false);
         }
       });
-    return () => { mounted = false; };
+
+    // Realtime: update individual lecture when any column changes (is_live, etc.)
+    const channel = supabase
+      .channel('all-lectures-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'lectures' },
+        (payload) => {
+          if (mounted && payload.new) {
+            const updated = payload.new as Lecture;
+            setLectures((prev) =>
+              prev.map((l) => (l.id === updated.id ? updated : l)),
+            );
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { lectures, loading };

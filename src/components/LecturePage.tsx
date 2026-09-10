@@ -11,6 +11,7 @@ import { useLectureById, useChaptersBySubjectSlug, useLectures, formatDuration }
 import { getProgress, markCompleted, unmarkCompleted, isDownloaded } from '../lib/storage';
 import { CinematicPlayer } from './CinematicPlayer';
 import { PracticeQuizPanel, McqPanel, DoubtPanel } from './StudyTools';
+import { LiveChat } from './LiveChat';
 
 const FALLBACK_THUMB = 'https://images.pexels.com/photos/256541/pexels-photo-256541.jpeg?auto=compress&cs=tinysrgb&w=400';
 
@@ -153,11 +154,20 @@ export function LecturePage({ subjectSlug, chapterSlug, lectureId }: { subjectSl
 
         {/* ═══ RIGHT: Main Content ═══ */}
         <div className="flex-1 min-w-0 order-1 lg:order-2">
-          <CinematicPlayer
-            lecture={lecture}
-            onEnded={() => { markCompleted(lectureId); setCompleted(true); }}
-            onNext={nextLecture ? () => navigate({ name: 'lecture', subjectSlug, chapterSlug, lectureId: nextLecture.id }) : undefined}
-          />
+          <div className={`flex flex-col ${lecture.is_chat ? 'xl:flex-row' : ''} gap-4`}>
+            <div className={lecture.is_chat ? 'xl:flex-1 min-w-0' : 'w-full'}>
+              <CinematicPlayer
+                lecture={lecture}
+                onEnded={() => { markCompleted(lectureId); setCompleted(true); }}
+                onNext={nextLecture ? () => navigate({ name: 'lecture', subjectSlug, chapterSlug, lectureId: nextLecture.id }) : undefined}
+              />
+            </div>
+            {lecture.is_chat && (
+              <div className="xl:w-80 flex-shrink-0 bg-gray-900 border border-white/10 rounded-3xl overflow-hidden h-[400px] xl:h-auto xl:max-h-[70vh] flex flex-col">
+                <LiveChat lectureId={lecture.id} isLive={lecture.is_live} />
+              </div>
+            )}
+          </div>
 
           {/* Title + Actions */}
           <motion.div

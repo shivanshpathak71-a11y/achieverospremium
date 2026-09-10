@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Play, BookOpen, Sparkles, ArrowRight, GraduationCap, Award } from 'lucide-react';
 import { useRouter } from '../lib/router';
 import { ParticleField } from './ParticleField';

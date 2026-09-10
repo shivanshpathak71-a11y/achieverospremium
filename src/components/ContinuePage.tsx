@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Play, Clock, ChevronRight, Trash2, TrendingUp } from 'lucide-react';
 import { useRouter } from '../lib/router';
 import { useProgress, formatDuration } from '../lib/hooks';

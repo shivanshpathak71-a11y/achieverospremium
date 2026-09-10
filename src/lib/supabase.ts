@@ -118,6 +118,7 @@ export interface Lecture {
   class_tests: ClassTest[] | null;
   source_video_urls: string[] | null;
   is_live: boolean;
+  is_chat: boolean;
   thumbnail_url: string | null;
   duration_seconds: number;
   teacher_name: string | null;
@@ -135,5 +136,6 @@ export interface Lecture {
   start_date: string | null;
   end_date: string | null;
   section_name: string | null;
+  source_lecture_url: string | null;
   chapter?: Chapter;
 }

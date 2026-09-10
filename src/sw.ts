@@ -3,8 +3,8 @@
 
 declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST?: unknown };
 
-const STATIC_CACHE = 'shivansh-v1-static';
-const RUNTIME_CACHE = 'shivansh-v1-runtime';
+const STATIC_CACHE = 'shivansh-v2-static';
+const RUNTIME_CACHE = 'shivansh-v2-runtime';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_URLS: string[] = ((self.__WB_MANIFEST as Array<{ url: string } | string> | undefined) || []).map((entry) =>
@@ -39,6 +39,10 @@ self.addEventListener('fetch', (event: FetchEvent) => {
 
   const url = new URL(request.url);
   if (!url.origin.startsWith('http')) return;
+  // Let cross-origin requests (iframes, CDN assets, etc.) bypass the SW so the
+  // browser handles them directly — intercepting them yields opaque responses
+  // that the browser refuses to render in iframes.
+  if (url.origin !== self.location.origin) return;
 
   if (request.mode === 'navigate') {
     event.respondWith(
@@ -55,34 +59,16 @@ self.addEventListener('fetch', (event: FetchEvent) => {
     return;
   }
 
-  if (url.origin === self.location.origin) {
-    event.respondWith(
-      caches.match(request).then((cached: Response | undefined) => {
-        if (cached) return cached;
-        return fetch(request).then((response: Response) => {
-          if (response && response.status === 200) {
-            const copy = response.clone();
-            caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        }).catch(() => cached || new Response('Offline', { status: 503 }));
-      })
-    );
-    return;
-  }
-
   event.respondWith(
     caches.match(request).then((cached: Response | undefined) => {
-      const fetchPromise = fetch(request)
-        .then((response: Response) => {
-          if (response && response.status === 200) {
-            const copy = response.clone();
-            caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() => cached || new Response('Offline', { status: 503 }));
-      return cached || fetchPromise;
+      if (cached) return cached;
+      return fetch(request).then((response: Response) => {
+        if (response && response.status === 200) {
+          const copy = response.clone();
+          caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+        }
+        return response;
+      }).catch(() => cached || new Response('Offline', { status: 503 }));
     })
   );
 });

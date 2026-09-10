@@ -1,0 +1,44 @@
+[functions.sync-selection-batch]
+verify_jwt = false
+
+[functions.hls-proxy]
+verify_jwt = false
+
+[functions.sync-parmar-maths]
+verify_jwt = false
+
+[functions.sync-steno-pitman]
+verify_jwt = false
+
+[functions.steno-video-proxy]
+verify_jwt = false
+
+[functions.sync-parmar-gk]
+verify_jwt = false
+
+[functions.ai-assistant]
+verify_jwt = false
+
+[functions.parmar-diagnostic]
+verify_jwt = false
+
+[functions.sync-live-status]
+verify_jwt = false
+
+[functions.sync-source-chat]
+verify_jwt = false
+
+[functions.cleanup-old-chat-messages]
+verify_jwt = false
+
+[functions.sync-codewithharry-ds]
+verify_jwt = false
+
+[functions.video-embed]
+verify_jwt = false
+
+[functions.sync-codebasics-excel]
+verify_jwt = false
+
+[functions.sync-uclive-achievers]
+verify_jwt = false

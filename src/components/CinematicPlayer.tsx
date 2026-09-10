@@ -50,9 +50,44 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
   const lastTapRef = useRef<{ time: number; side: 'left' | 'right' } | null>(null);
   const hlsRef = useRef<Hls | null>(null);
 
+  // ── Iframe embed detection (VdoCipher / Gumlet) ──
+  const EMBED_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-embed`;
+  const isVdoCipher = !!lecture.video_url && lecture.video_url.includes('vdocipher');
+  const isCodebasics = !!lecture.source_lecture_url && lecture.source_lecture_url.includes('codebasics.io');
+  const needsIframe = isVdoCipher || isCodebasics;
+  const [embedUrl, setEmbedUrl] = useState<string | null>(null);
+  const [embedError, setEmbedError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!needsIframe) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(EMBED_BASE, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            video_url: lecture.video_url || undefined,
+            lecture_url: lecture.source_lecture_url || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.embedUrl) setEmbedUrl(data.embedUrl);
+        else setEmbedError(data.error || 'Failed to load video');
+      } catch {
+        if (!cancelled) setEmbedError('Failed to load video');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [needsIframe, lecture.video_url, lecture.source_lecture_url]);
+
   // HLS needs the proxy because hls.js uses fetch() (CORS-enforced) to download segments.
   // MP4 files load directly from the CDN — <video src> doesn't enforce CORS, so no proxy needed.
-  const PROXY_BASE = 'https://hdkbxuxzedsqyiccwomw.supabase.co/functions/v1/hls-proxy';
+  const PROXY_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/hls-proxy`;
   const isHls = lecture.video_url?.includes('.m3u8') ?? false;
   const needsProxy = !!lecture.video_url && (isHls || lecture.video_url.includes('hranker.com'));
   const streamUrl = needsProxy && lecture.video_url
@@ -334,6 +369,42 @@ export function CinematicPlayer({ lecture, onEnded, onNext }: {
   }, [menuView, playing, locked]);
 
   const abActive = abRepeat.a !== null && abRepeat.b !== null;
+
+  // ── Iframe embed render path (VdoCipher / Gumlet) ──
+  if (needsIframe) {
+    return (
+      <div className={theaterMode ? 'relative w-full' : 'relative w-full aspect-video'}>
+        <div ref={containerRef} className="relative w-full h-full bg-black rounded-2xl overflow-hidden">
+          {lecture.is_live && (
+            <div className="absolute top-3 left-3 z-10 flex items-center gap-1 bg-red-500 rounded-md px-1.5 py-0.5 shadow-lg pointer-events-none">
+              <Radio className="w-3 h-3 text-white fill-white animate-pulse" />
+              <span className="text-[10px] font-bold text-white tracking-wide">LIVE</span>
+            </div>
+          )}
+          {embedError ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white/70">
+              <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
+                <Play className="w-6 h-6 text-white/40" />
+              </div>
+              <p className="text-sm">{embedError}</p>
+            </div>
+          ) : !embedUrl ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full border-3 border-white/20 border-t-primary-400 animate-spin" style={{ borderWidth: '3px' }} />
+            </div>
+          ) : (
+            <iframe
+              src={embedUrl}
+              className="w-full h-full"
+              allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+              allowFullScreen
+              title={lecture.title}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={theaterMode ? 'relative w-full' : 'relative w-full aspect-video'}>
